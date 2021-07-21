@@ -31,7 +31,7 @@ tags:
 
 ### HostPath
 
-关于 Drone In K8S 的运行模式，可以翻看我之前写的文章 [Drone 在 K8S 中执行一次构建都经历了什么](https://blog.domc.me/2019/10/22/ck34o2dab0007u79ki5yxke0l/)。
+关于 Drone In K8S 的运行模式，可以翻看我之前写的文章 [Drone 在 K8S 中执行一次构建都经历了什么](https://domc.me/2019/10/22/ck34o2dab0007u79ki5yxke0l/)。
 
 简单来说，`Drone Server` 接收到构建任务后，会在其运行的 `Namespace`（假设为 CICD）下创建一个 `Job`，该 Job 会创建一个随机名称的 Namespace，再在创建出来的 Namespace 按配置文件中的顺序执行每个 Step，每个 `Step` 就是一个 `Pod`。这些 Pods 之间通过 `HostPath` 类型的 `Volume` 来交换文件。
 
