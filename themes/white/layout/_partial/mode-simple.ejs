@@ -1,7 +1,7 @@
 <section class="archive-outer">
     <section class="archive-inner">
         <% var last; %>
-        <% page.posts.sort('date', -1).limit(10).each(function(post, i) { %>
+        <% page.posts.sort('date', -1).each(function(post, i) { %>
         <% var year = post.date.year(); %>
         <% if (last != year){ %>
             <% if (last != null){ %>
@@ -17,13 +17,13 @@
           </div>
           </a>
         <% }) %>
-        <% if (page.total > 1){ %>
+        <!-- <% if (page.total > 1){ %>
           <nav class="paginator animate__animated  animate__fadeInUp">
             <%- paginator({
               prev_text: theme.pagination.prev,
               next_text: theme.pagination.next
             }) %>
           </nav>
-        <% } %>
+        <% } %> -->
     </section>
 </section>

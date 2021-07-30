@@ -17,8 +17,6 @@ tags:
 
 下面开始使用git filter-branch清除文件提交记录
 
-<!-- more -->
-
 1、进入项目根路径
 
 ```bash
@@ -50,6 +48,7 @@ git commit -m "Add YOUR-FILE-WITH-SENSITIVE-DATA to .gitignore"
 ```bash
 git push origin --force --all
 ```
+
 来更新你的所有分支
 
 5、如果需要从标记的版本删除敏感信息你可以使用

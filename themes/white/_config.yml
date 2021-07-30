@@ -135,7 +135,7 @@ footer: Power by [Hexo](http://hexo.io/) Theme by [White](https://github.com/FuS
 
 #有分类时是否开启menu分类页和自定义名字
 menu_categories:
-  open: true
+  open: false
   name: 分类
 
 #可自定义归档标签页名字

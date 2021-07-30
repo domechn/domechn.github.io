@@ -28,8 +28,6 @@ tags:
 
 那么问题出在哪呢？
 
-<!-- more -->
-
 经过一段时间排查，我发现只有当 `Image` 为 `registry.cn-hangzhou.aliyuncs.com/xxx/xxxx:xxx` 是才会出现这种不正常情况。
 
 原来是因为我们集群里还运行着另一个服务，该服务会在 **Pod 被创建时**判断 Image 的类型，将这种使用了公网地址的 Image，替换成使用内网地址 `registry-vpc.cn-hangzhou.aliyuncs.com/xxx/xxxx:xxx`。再加上我刚好对 `drone-runner-kube` 做过一些[优化](https://github.com/domgoer/drone-runner-kube/commit/d2b8fd19b69206ece37e00754b3d1b92fb58ad11)（提前设置初始镜像，减少 pod update 次数）。导致了这两个服务冲突。

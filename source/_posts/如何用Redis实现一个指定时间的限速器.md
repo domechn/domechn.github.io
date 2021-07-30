@@ -32,9 +32,7 @@ END
 PERFORM_API_CALL()
 ```
 
-<!-- more -->
-
-### 举个例子：
+### 举个例子
 
 现有一个服务，1分钟内只能接受一个用户不超过10次的请求，这时我们可以将用户的ip地址设置为key，用户每次时程序去redis中获取该key的值，如果大于等于10则返回错误，否则给key对应的value+1即可，如果value为0，那么再将该key设置1分钟的过期时间。
 
@@ -46,7 +44,7 @@ PERFORM_API_CALL()
 
 此时，仅使用`Incr`是无法满足该需求的。
 
-### 解决方法：
+### 解决方法
 
 使用`set`或者`zset`将用户的`ip+发送日期`作为key,发送时间转换为当天的秒数作为value，插入到`set`或者`zset`中，每次向用户提交信息时，可以获取到`set`中的所有发送时间，然后再一一比对，如果不满足条件就返回错误。
 
@@ -74,64 +72,64 @@ function RateLimit(ip,sendtime){
 ```go
 func RateLimit(ctx context.Context, ip string, sendTime time.Time) error {
     sendTime = sendTime.UTC()
-	if sendTime.Before(time.Now()) {
-		return nil
-	}
-	zeroStr := sendTime.Format("2006-01-02")
-	key := ip + zeroStr
-	zero, _ := time.Parse("2006-01-02", zeroStr)
+ if sendTime.Before(time.Now()) {
+  return nil
+ }
+ zeroStr := sendTime.Format("2006-01-02")
+ key := ip + zeroStr
+ zero, _ := time.Parse("2006-01-02", zeroStr)
     // 获取发送时间距当天时间的秒数
-	second := int(sendTime.Sub(zero).Seconds())
-	ress, err := cache.SMembers(ctx, key)
-	if err != nil {
-		return err
-	}
+ second := int(sendTime.Sub(zero).Seconds())
+ ress, err := cache.SMembers(ctx, key)
+ if err != nil {
+  return err
+ }
     // 处理返回参数，将[]string转换为[]int
     var sends []int
-	for _, v := range ress {
-		if vv, err := strconv.Atoi(v); err == nil {
-			sends = append(sends, vv)
-		}
-	}
-	if len(sends) >= 10 {
-		return errors.ErrMsg1DayLimit
-	}
+ for _, v := range ress {
+  if vv, err := strconv.Atoi(v); err == nil {
+   sends = append(sends, vv)
+  }
+ }
+ if len(sends) >= 10 {
+  return errors.ErrMsg1DayLimit
+ }
 
-	var expire bool
+ var expire bool
 
-	if len(sends) == 0 {
-		expire = true
-	}
+ if len(sends) == 0 {
+  expire = true
+ }
 
-	var hourCount int
+ var hourCount int
 
-	for _, s := range sends {
-		if math.Abs(float64(second-s)) < 60 {
-			return errors.ErrMsg1MinuteLimit
-		}
-		if math.Abs(float64(second-s)) < 3600 {
-			hourCount++
-		}
-	}
-	if hourCount > 5 {
-		return errors.ErrMsg1HourLimit
-	}
+ for _, s := range sends {
+  if math.Abs(float64(second-s)) < 60 {
+   return errors.ErrMsg1MinuteLimit
+  }
+  if math.Abs(float64(second-s)) < 3600 {
+   hourCount++
+  }
+ }
+ if hourCount > 5 {
+  return errors.ErrMsg1HourLimit
+ }
     // 异步更新
     go func() {
         // 开启事务
-		t := cache.Pipeline()
-		defer t.Close()
-		t.SAdd(context.Background(), key, []byte(strconv.Itoa(second)))
-		if expire {
-			ttl := zero.Add(time.Hour*24).Sub(time.Now()).Seconds()
-			if ttl <= 0 {
-				t.Rollback()
-				return
-			}
-			t.Expire( key, int64(ttl))
-		}
-		t.Commit()
-	}()
+  t := cache.Pipeline()
+  defer t.Close()
+  t.SAdd(context.Background(), key, []byte(strconv.Itoa(second)))
+  if expire {
+   ttl := zero.Add(time.Hour*24).Sub(time.Now()).Seconds()
+   if ttl <= 0 {
+    t.Rollback()
+    return
+   }
+   t.Expire( key, int64(ttl))
+  }
+  t.Commit()
+ }()
     return nil
 }
 ```

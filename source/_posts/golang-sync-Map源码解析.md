@@ -12,38 +12,36 @@ golang的内建类型map是非线程安全的，当我们使用并发操作去�
 package main
 
 import (
-	"fmt"
-	"sync"
+ "fmt"
+ "sync"
 )
 
 func main() {
-	var m = make(map[string]string,100)
+ var m = make(map[string]string,100)
 
-	var wait  sync.WaitGroup
+ var wait  sync.WaitGroup
 
-	for i := 0 ;i < 100 ; i ++ {
-		wait.Add(1)
-		go func() {
-			m[fmt.Sprintf("%d",i)] = "test"
-			wait.Done()
-		}()
-	}
+ for i := 0 ;i < 100 ; i ++ {
+  wait.Add(1)
+  go func() {
+   m[fmt.Sprintf("%d",i)] = "test"
+   wait.Done()
+  }()
+ }
 
-	wait.Wait()
+ wait.Wait()
 }
 ```
 
-<!-- more -->
-
-```
+```plaintext
 fatal error: concurrent map writes
 fatal error: concurrent map writes
 
 goroutine 11 [running]:
 runtime.throw(0x10c6370, 0x15)
-	/usr/local/go/src/runtime/panic.go:608 +0x72 fp=0xc00002cf08 sp=0xc00002ced8 pc=0x1026e52
+ /usr/local/go/src/runtime/panic.go:608 +0x72 fp=0xc00002cf08 sp=0xc00002ced8 pc=0x1026e52
 runtime.mapassign_faststr(0x10a9860, 0xc00006e120, 0xc0000a0010, 0x2, 0x1)
-	/usr/local/go/src/runtime/map_faststr.go:199 +0x3da fp=0xc00002cf70 sp=0xc00002cf08 pc=0x100fada
+ /usr/local/go/src/runtime/map_faststr.go:199 +0x3da fp=0xc00002cf70 sp=0xc00002cf08 pc=0x100fada
 main.main.func1(0xc00006e120, 0xc000016078, 0xc000016080)
 ...
 ```
@@ -66,19 +64,19 @@ main.main.func1(0xc00006e120, 0xc000016078, 0xc000016080)
 //
 // 你可以直接var x sync.Map就能使用，不需要去执行New...,Map不能被copy
 type Map struct {
-	mu Mutex
+ mu Mutex
 
     // read中保存了Map中部分内容，这些内容是只读的，所以是线程安全的
     // 其中保存的数据类型是readOnly
-	read atomic.Value // readOnly
+ read atomic.Value // readOnly
 
     // 所有对dirty的操作都是需要加锁的
     // 如果dirty为空，下一次写操作会复制read中没被删除的数据到dirty
-	dirty map[interface{}]*entry
+ dirty map[interface{}]*entry
 
     // 当从Map中读取entry时，会先去read中读取，如果read中读不到则到dirty中读取，这是
     // 会将该值+1，当该值到达一定大小后就会将read中所有值更新为dirty中保存的值
-	misses int
+ misses int
 }
 ```
 
@@ -91,21 +89,21 @@ type Map struct {
 ```go
 // readOnly is an immutable struct stored atomically in the Map.read field.
 type readOnly struct {
-	m       map[interface{}]*entry
-	amended bool // 如果dirty中存在一些m中没有的key，该值则为true
+ m       map[interface{}]*entry
+ amended bool // 如果dirty中存在一些m中没有的key，该值则为true
 }
 ```
 
 ```go
 // An entry is a slot in the map corresponding to a particular key.
 type entry struct {
-	// p points to the interface{} value stored for the entry.
-	//
+ // p points to the interface{} value stored for the entry.
+ //
     // p有三种情况
     // p == nil: entry已经被删除，且m.dirty为nil
     // expunged: entry已经被删除，但是m.dirty不是nil，并且这个entry不在m.dirty中
     // 其他: entry是个正常值
-	p unsafe.Pointer // *interface{}
+ p unsafe.Pointer // *interface{}
 }
 ```
 
@@ -119,27 +117,27 @@ Load方法用于根据Key读取Map中的值
 // ok 表示Map中是否包含key
 func (m *Map) Load(key interface{}) (value interface{}, ok bool) {
     // 直接从readonly中读取，如果读到直接返回，因为是readonly所以不用加锁
-	read, _ := m.read.Load().(readOnly)
-	e, ok := read.m[key]
+ read, _ := m.read.Load().(readOnly)
+ e, ok := read.m[key]
     // 如果readonly中没有值，并且dirty中存在read中不存在的值时
-	if !ok && read.amended {
-		m.mu.Lock()
+ if !ok && read.amended {
+  m.mu.Lock()
         // 加锁，双检查
-		read, _ = m.read.Load().(readOnly)
-		e, ok = read.m[key]
+  read, _ = m.read.Load().(readOnly)
+  e, ok = read.m[key]
         // 如果read中仍然不存在该key，且dirty中有read中不存在的值
-		if !ok && read.amended {
+  if !ok && read.amended {
             // 从dirty中检查是否有该key
-			e, ok = m.dirty[key]
+   e, ok = m.dirty[key]
             // 不管dirty中是否有改key，都将misses+1
             // 当misses到达一定值之后，m.dirty会被提升为read
-			m.missLocked()
-		}
-		m.mu.Unlock()
-	}
-	if !ok {
-		return nil, false
-	}
-	return e.load()
+   m.missLocked()
+  }
+  m.mu.Unlock()
+ }
+ if !ok {
+  return nil, false
+ }
+ return e.load()
 }
 ```

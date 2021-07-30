@@ -23,8 +23,6 @@ WebSocket connection to 'ws://xxxxx/' failed: Error in connection establishment:
 
 于是我确定是之前重构的项目问题。
 
-<!-- more -->
-
 我开始查看 `Pod` 的日志，发现在连接建立成功并断开的时候没有将日志打印出来。
 
 > 该项目用了 `echo` 框架，并使用了 `LogMiddleware` ，它会在每条请求结束后将请求信息打印出来。

@@ -40,11 +40,9 @@ tags:
 
 6. 通过上面所有验证后，api-server 将 kubectl 提交的数据反序列化，然后保存到 etcd 中。
 
-<!-- more -->
-
 ### InitializerConfiguration
 
-1. 虽然数据已经持久化到 etcd 中了，但apiserver 还无法完全看到或调度它，在此之前还要执行一系列 `Initializers`。`Initializers` 会在资源对外可用之前执行某些逻辑。比如 `将 Sidecar` 注入到暴露 80 端口的 Pod 中，或者加上特定的 `annotation` 等。`InitializerConfiguration` 资源对象允许你声明某些资源类型应该运行哪些Initializers。
+1. 虽然数据已经持久化到 etcd 中了，但 apiserver 还无法完全看到或调度它，在此之前还要执行一系列 `Initializers`。`Initializers` 会在资源对外可用之前执行某些逻辑。比如 `将 Sidecar` 注入到暴露 80 端口的 Pod 中，或者加上特定的 `annotation` 等。`InitializerConfiguration` 资源对象允许你声明某些资源类型应该运行哪些Initializers。
 
 ### Contorller
 
@@ -120,4 +118,4 @@ tags:
 
 参考：
 
->  https://mp.weixin.qq.com/s/ctdvbasKE-vpLRxDJjwVMw
+* <https://mp.weixin.qq.com/s/ctdvbasKE-vpLRxDJjwVMw>

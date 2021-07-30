@@ -13,8 +13,6 @@ tags:
 
 我们都知道，在 k8s 中，一个 Pod 如果要访问同 Namespace 下的 Service（比如 user-svc），那么只需要curl user-svc。如果 Pod 和 Service 不在同一域名下，那么就需要在 Service Name 之后添加上 Service 所在的 Namespace（比如 beta），curl user-svc.beta。那么 k8s 是如何知道这些域名是内部域名并为他们做解析的呢？
 
-<!-- more -->
-
 ## DNS In Kubernetes
 
 ### /etc/resolv.conf
