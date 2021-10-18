@@ -105,7 +105,7 @@ Calico 使用了 `proxy_arp` 来解决，简单来说开启 proxy_arp 的网络�
 
 **Cilium**
 
-Cilium 的做法则是直接通过在 `veth*` 上 attach bpf 程序，为 Pod 的所有 arp 请求返回它的 mac
+Cilium 的做法则是过在 `veth*` 上 attach `tc ingress bpf 程序`，为 Pod 的所有 arp 请求都返回 veth* 的 mac
 
 ### 跨节点 Pod 通信
 
