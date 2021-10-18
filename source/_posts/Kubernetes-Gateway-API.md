@@ -1,7 +1,7 @@
 ---
 title: Kubernetes Gateway API
 date: 2021-05-10 00:14:15
-subtitle: k8s-gateway-api
+subtitle: k8s_gateway_api
 tags:
   - kubernetes
   - network

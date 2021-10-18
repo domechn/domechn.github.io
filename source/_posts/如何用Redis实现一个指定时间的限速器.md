@@ -1,6 +1,6 @@
 ---
 title: 如何用Redis实现一个指定时间的限速器
-subtitle: redis-limit
+subtitle: redis_limit
 date: 2019-02-28 14:53:58
 tags:
 - redis

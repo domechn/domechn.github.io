@@ -1,6 +1,6 @@
 ---
 title: github 移除敏感文件提交记录
-subtitle: github-sensitive
+subtitle: github_sensitive
 date: 2019-02-28 14:52:51
 tags:
 - git

@@ -1,6 +1,6 @@
 ---
 title: 'ExitCode: 128 之无任何错误信息'
-subtitle: exit-code-128
+subtitle: exit_code_128
 date: 2019-11-21 02:04:24
 tags:
 - issues

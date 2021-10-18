@@ -1,6 +1,6 @@
 ---
 title: 解决golang使用elastic连接elasticsearch时自动转换连接地址
-subtitle: golang-elastic-url
+subtitle: golang_elastic_url
 date: 2019-02-28 14:53:27
 tags:
 - golang

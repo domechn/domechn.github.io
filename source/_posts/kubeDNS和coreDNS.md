@@ -1,6 +1,6 @@
 ---
 title: kubeDNS和coreDNS
-subtitle: kube-dns-and-core-dns
+subtitle: kube_dns_and_core_dns
 date: 2019-08-07 21:32:39
 tags:
 - kubernetes

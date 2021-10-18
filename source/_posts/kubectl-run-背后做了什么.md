@@ -1,6 +1,6 @@
 ---
 title: kubectl run 背后做了什么
-subtitle: kubectl-run
+subtitle: whats_run_in_kubectl
 date: 2019-08-29 16:18:17
 tags:
 - kubernetes

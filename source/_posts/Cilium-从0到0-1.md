@@ -1,5 +1,6 @@
 ---
 title: Cilium 从 0 到 0.1
+subtitle: cilium_0_to_0_1
 date: 2021-10-17 16:40:13
 tags:
 - kubernetes
@@ -516,11 +517,148 @@ MARK       all  --  anywhere             anywhere             mark match ! 0xe00
 
 ### Network Policy
 
-Cilium 支持基于 `Layer 3/4/7` 的网络策略
+Cilium 支持基于 `Layer 3/4/7` 的网络策略，同时支持 `allow` 和 `deny` 两种模式
 
-Cilium 除了兼容 Kuberentes 的 `NetworkPolicy` API，也提供了 CRD 用于定义网络策略 `CiliumNetworkPolicy`
+> 相同的规则，deny 的优先级更高
+
+Cilium 除了兼容 Kuberentes 的 `NetworkPolicy` API，也提供了 CRD 用于定义网络策略 `CiliumNetworkPolicy`（具体字段请看[官方文档](https://docs.cilium.io/en/stable/policy/intro/#rule-basics)，这里不做介绍）
+
+Cilium 提供了三种网络策略模式
+
+- `default`: 默认模式，如果一个 `endpoint` 设置了一个 `ingress`，那么不符合这个规则的 ingress 请求都会被拒绝。`egress` 同理。不过 `deny` 规则不同，如果一个 `endpoint` 只设置了 deny，那么只有命中 deny 规则的请求会被拒绝，其他还是会被放行，如果一个 `endpoint` 没有设置任何 rule，那么它的网络不受任何限制
+- `always`: 如果一个 `endpoint` 没有设置任何 rule，那么它无法访问其他服务，也无法被其他服务访问
+- `never`: 不启动 Cilium 的网络策略，所有服务之间都能互相或者和外部访问
+
+**Layer 3**
+
+- `Labels Based`: 根据 Pod labels 选择对应的 ip 然后过滤
+- `Services Based`: 根据 Service labels 选择对于的 ip 然后过滤
+- `Entities Based`: Cilium 内置了以下字段来指定特定的流量
+  - `host`: 本节点的流量
+  - `remote-node`: 集群内其他节点的 Endpoint
+  - `cluster`: 集群内部 Endpoint
+  - `init`: 在引导阶段还没有被解析的 Endpoint
+  - `health`: Cilium 用来检查集群状态的 Endpoint
+  - `unmanaged`: 不是由 Cilium 管理的 Endpoint
+  - `world`: 所有外部流量，允许 world 流量相当于允许 `0.0.0.0/0`
+  - `all`: 以上所有
+- `IP/CIDR Based`: 基于 IP 过滤
+- `DNS Based`: 基于 dns 解析后的 IP 过滤，Cilium 会在 agent 中运行 dns proxy，然后缓存 dns 解析后的 ip list，如果 dns name 满足 allow 或者 deny 规则，那么所有发往这些 ip list 的请求都会被过滤
+
+**Layer 4**
+
+- `Port`: 按端口号过滤
+- `Protocol`: 按协议过滤，支持 `TCP`, `UDP` 和 `ANY`
+
+**Layer 7**
+
+- `HTTP`: 支持根据请求 `Path`, `Method`, `Host`, `Headers` 过滤
+- `DNS`: 不同于 Layer 3 中的 `DNS Based` 过滤，这是直接过滤 DNS 请求（因为是在 Layer 7 的缘故）
+- `Kafka`: 支持根据 `Role` (`produce`, `consume`), `Topic`, `ClientID`, `APIKey` 和 `APIVersion` 过滤
+
+注意：使用了 Layer 7 Network Policy 之后，所有请求都会被转发到 Cilium agent 的 Proxy 中，该 Proxy 由 Envoy 提供，在 Legacy Host Routing 模式下，数据路径会变成下面这样
+
+![cilium_bpf_endpoint](/images/cilium_0_0_1/cilium_bpf_endpoint.svg)
+
+上图描述了 Endpoint to Endpoint 使用了 Layer 7 NetworkPolicy 时的数据路径，上半部分为 TCP 连接建立之前的数据路径，下半部分为 TCP 连接 `ESTABLISHED` 之后数据的路径
+
+### Bandwidth Manager
+
+Cilium 还提供了带宽限制的功能
+
+可以通过在 Pod annotation 中添加 `kubernetes.io/ingress-bandwidth: "10M"` 或者 `kubernetes.io/egress-bandwidth: "10M"` 来限制单个 Pod 的带宽。这样 Pod 的出口和入口带宽会被限制在 `10Mbit/s`
+
+不过目前该功能还无法和 Layer 7 NetworkPolicy 同时工作，两者都使用的话会导致带宽限制失效
 
 ## Trouble Shooting
+
+这部分会介绍一些工具来方便排查网络问题，主要是 cilium cli 的使用
+
+可以 exec 到 cilium pod 中使用 cilium 命令行进行调试
+
+**查看集群网络状态**
+
+`cilium status`
+
+```shell
+KVStore:                Ok   Disabled
+Kubernetes:             Ok   1.21+ (v1.21.2-eks-0389ca3) [linux/amd64]
+Kubernetes APIs:        ["cilium/v2::CiliumClusterwideNetworkPolicy", "cilium/v2::CiliumEndpoint", "cilium/v2::CiliumNetworkPolicy", "cilium/v2::CiliumNode", "core/v1::Namespace", "core/v1::Node", "core/v1::Pods", "core/v1::Service", "discovery/v1::EndpointSlice", "networking.k8s.io/v1::NetworkPolicy"]
+KubeProxyReplacement:   Disabled
+Cilium:                 Ok   1.10.3 (v1.10.3-4145278)
+NodeMonitor:            Listening for events on 8 CPUs with 64x4096 of shared memory
+Cilium health daemon:   Ok
+IPAM:                   IPv4: 1/254 allocated from 10.0.1.0/24,
+BandwidthManager:       Disabled
+Host Routing:           Legacy
+Masquerading:           Disabled
+Controller Status:      30/30 healthy
+Proxy Status:           OK, ip 10.0.1.118, 0 redirects active on ports 10000-20000
+Hubble:                 Ok   Current/Max Flows: 4095/4095 (100.00%), Flows/s: 12.47   Metrics: Ok
+Encryption:             Disabled
+Cluster health:         5/5 reachable   (2021-10-18T15:01:07Z)
+```
+
+**抓包**
+
+`cilium monitor`
+
+在 BPF 场景下因为数据路径和传统网络栈发生较大改变，如果不熟悉这套模式在使用比如 `tcpdump` 等工具抓包调试时可以产生一些问题。（比如在 BPF Host Routing 下，lxc 接口是无法抓到回程报文的）
+
+好在 cilium 提供了一套工具用于分析数据包，方便开发者进行问题排查
+
+**NetworkPolicy Tracing**
+
+如果集群中使用了较多的网络策略，有可能导致某些情况下请求命中了意料之外的 NetworkPolicy 导致失败
+
+Cilium 也提供了 policy tracing 的功能用来追踪请求命中 `NetworkPolicy` 的情况
+
+`cilium policy trace`
+
+```shell
+# 验证从 default ns 下 xwing 发出的流量，到 default ns 下带有 deathstar label 的 endpoint 的 80 端口的流量会命中哪些 cnp
+$ cilium policy trace --src-k8s-pod default:xwing -d any:class=deathstar,k8s:org=expire,k8s:io.kubernetes.pod.namespace=default --dport 80
+level=info msg="Waiting for k8s api-server to be ready..." subsys=k8s
+level=info msg="Connected to k8s api-server" ipAddr="https://10.96.0.1:443" subsys=k8s
+----------------------------------------------------------------
+Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [any:class=deathstar, k8s:org=empire, k8s:io.kubernetes.pod.namespace=default] Ports: [80/ANY]
+
+Resolving ingress policy for [any:class=deathstar k8s:org=empire k8s:io.kubernetes.pod.namespace=default]
+* Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
+    Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
+      Labels [k8s:class=xwing k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance] not found
+1/1 rules selected
+Found no allow rule
+Ingress verdict: denied
+
+Final verdict: DENIED
+```
+
+**Dns Based NetworkPolicy Debug**
+
+随着 DNS 查询结果的变化，FQDN Policy 的拦截结果也在变，导致这部分难以 debug
+
+可以使用 `cilium fqdn cache list` 查看当前 dns proxy 中缓存了哪些 dns-ip
+
+如果流量是允许的，那么这些 IPs 应该存在于 local identities，`cilium identity list | grep <IP>` 应该返回结果
+
+**Hubble**
+
+Cilium 还提供了 Hubble 用来加强网络监控和报警，Hubble 提供了以下功能
+
+- 可视化
+  - 服务的调用关系
+  - 支持 [[HTTP]]，[[kafka]] 协议
+- 监控和报警
+  - 网络监控
+    - 过去一段时间内是否有网络通信失败，通信失败的原因
+    - 应用监控
+      - `4xx` 和 `5xx` HTTP Response code 出现的频率，出现在哪些服务
+      - http 调用的 `latency`
+  - 安全性监控
+    - 是否有因为 [[NetworkPolicy]] Deny 失败的请求
+    - 哪些服务，有接收集群外发来的请求
+    - 哪些服务要求解析某个特定的 dns
 
 ## Reference
 
