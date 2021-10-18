@@ -648,7 +648,7 @@ Cilium 还提供了 Hubble 用来加强网络监控和报警，Hubble 提供了�
 
 - 可视化
   - 服务的调用关系
-  - 支持 [[HTTP]]，[[kafka]] 协议
+  - 支持 HTTP，kafka 协议
 - 监控和报警
   - 网络监控
     - 过去一段时间内是否有网络通信失败，通信失败的原因
@@ -656,7 +656,7 @@ Cilium 还提供了 Hubble 用来加强网络监控和报警，Hubble 提供了�
       - `4xx` 和 `5xx` HTTP Response code 出现的频率，出现在哪些服务
       - http 调用的 `latency`
   - 安全性监控
-    - 是否有因为 [[NetworkPolicy]] Deny 失败的请求
+    - 是否有因为 NetworkPolicy Deny 失败的请求
     - 哪些服务，有接收集群外发来的请求
     - 哪些服务要求解析某个特定的 dns
 
