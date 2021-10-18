@@ -15,7 +15,7 @@ tags:
 
 - eBPF 的基础知识
 - Cilium 对 eBPF 的应用
-- Cilium 中一些 Futures 的使用
+- Cilium 中一些 Features 的使用
 - 在 Cilium 中如何做 TroubleShooting
 
 当然在开始将 eBPF 和 Cilium 之前，会还是会简单介绍一下以下一些基础知识
@@ -513,7 +513,7 @@ MARK       all  --  anywhere             anywhere             mark match ! 0xe00
 
 ![ebpf_hostrouting](/images/cilium_0_0_1/ebpf_hostrouting.png)
 
-## Futures
+## Features
 
 ### Network Policy
 
