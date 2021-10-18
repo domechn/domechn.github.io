@@ -10,7 +10,7 @@ tags:
 
 *本文基于 `Cilium 1.10` 编写*
 
-最近在做 Cilium 相关的技术调研，也趁着周末有时间，将最近的调研结果总结成了这篇文章，顺便理一下自己的思路。这篇文章会和大家分享一些 Cilium 相关的知识，包括以下几个主要部分
+这篇文章会和大家分享一些 Cilium 相关的知识，包括以下几个主要部分
 
 - eBPF 的基础知识
 - Cilium 对 eBPF 的应用
@@ -104,9 +104,7 @@ Calico 使用了 `proxy_arp` 来解决，简单来说开启 proxy_arp 的网络�
 
 **Cilium**
 
-Cilium 的做法则是直接在 Pod 中写一条指向 `169.254.1.1` 的 static arp 规则。这样 Pod 可以直接拿到 nextHop 的 `dst_mac`。
-
-这样做的好处是整个请求流程简单，但需要通过一个外部 agent 去维护 arp 规则和 Pod 之间的关系，也带来了一定的维护成本。
+Cilium 的做法则是直接通过在 `veth*` 上 attach bpf 程序，为 Pod 的所有 arp 请求返回它的 mac
 
 ### 跨节点 Pod 通信
 
@@ -268,13 +266,13 @@ tc BPF 程序在数据路径上的 ingress 和 egress 都可以触发
 
 XDP BPF 程序只能在 ingress 点触发
 
-#### tc ingress
+**tc ingress**
 
 ![network_tc_data_path](/images/cilium_0_0_1/network_tc_data_path.jpg)
 
 tc ingress hook 位于 GRO 之后，处理协议之前最早的处理点
 
-#### tc egress
+**tc egress**
 
 tc egress hook 运行的位置是，内核将数据包交给 NIC Driver 之前最晚的位置，这个地方在传统 iptables 防火墙 `POSTROUTING` 链之后，但是在 GSO 引擎处理之前
 
@@ -304,11 +302,26 @@ tc egress hook 运行的位置是，内核将数据包交给 NIC Driver 之前�
 
 cls_bpf 是一种分类器，相比于其它类型的 tc 分类器，它有一个优势：能够使用 direct-action 模式
 
+Cilium 中就使用了 cls_bpf 分类器，它在部署 cls_bpf 服务时，对于给定的 hook 点只会 attach 一个程序，且用的正是 direct-action模式
+
 **direction-action**
 
-如上文所说，tc BPF 程序的执行模式是一个 classifier attach 多个 actions，classifier 负责匹配流量，然后将匹配到的流量交给 action 执行
+如上文所说，传统 tc BPF 程序的执行模式是 classifier 分类和 action modules 执行是分开的，一个 classifier attach 多个 actions，classifier 负责匹配流量，然后将匹配到的流量交给 action 执行
 
-todo
+但是对于很多场景，eBPF classifier 已经有足够的能力完成完成任务处理，无需再 attach 额外的 qdisc 或 class 了
+
+所以，为了
+
+- 避免因套用 tc 原有流程而引入一个功能单薄的 action
+- 简化那些 classifier 独自就能完成所有工作的场景
+- 提升性能
+
+社区为 tc 引入了一个新的 flag：direct-action，简写 da。 这个 flag 用在 filter 的 attach time，告诉系统： classifier 的返回值应当被解读为 action 类型的返回值。这意味着 classifier 加载的 eBPF 现在可以返回 action code 了。比如在要求丢包的场景中，就不需要再引入一个 action 执行 drop 操作，可以直接在 classifier 中完成
+
+这样带了的好处
+
+- 性能提升，因为 tc 子系统无需再调用到额外的 action 模块 ，而后者是在内核之外的
+- 程序结构更加简单易用
 
 **tc BPF 程序返回码**
 
@@ -321,7 +334,196 @@ todo
 - `TC_ACT_STOLEN`: NET_XIT_DROP` 给调用方包被丢弃，返回 `NET_XMIT_SUCCESS` 给调用方，假装这个包被正确发送
 - `TC_ACT_REDIRECT`: 使用这个返回码并加上 `bpf_redirect()` 辅助函数，允许重定向一个 `skb` 到同一个或另一个网络设备的 ingress 或 egress 路径。对目标网络设备没有额外的要求，只要本身是 一个网络设备就行了，在目标设备上不需要运行 `cls_bpf` 实例或其他限制
 
+**tc 使用案例**
+
+- `为容器落实策略`: 在容器网络中，veth-pair 一端连接着 Namespace，另一段连接着 Host。容器内所有的网络都会经过 Host 端的 veth 设备，因此在 veth 设备上的 tc ingress 和 egress hook 点可以 attach tc BPF 程序。此时容器内发出的流量都会经过 veth 的 tc ingress hook，进入容器的流量都会经过 veth 的 tc egress hook（对于 veth 这样的虚拟设备，XDP 在该场景下并不合适，因为内核在这里只操作 skb，而通用 XDP 有几个限制，导致无法操作克隆的 skb。而且 XDP 无法处理 egress 流量）
+- `转发和负载均和`: 使用场景和 XDP 很类似，只是目标更多的是在东西向容器流量而不是南北向。tc 还可以在 egress 方向使用，例如对容器的 egress 流量做 NAT 和 负载均衡，整个过程对容器是透明的。由于在内核网络栈的实现中，egress 流量已经是 sk_buff 形式的了，因此很适合 tc BPF 对其进行重写（rewrite）和重定向（redirect）。 使用 bpf_redirect() 辅助函数，BPF 就可以接管转发逻辑，将包推送到另一个网络设 备的 ingress 或 egress 路径上
+- `流抽样和监控`: tc BPF 程序可以同时 attach 到 ingress 和 egress，另外，这两个 hook 都在（通用）网络栈的更低层，这使得可以监控每台节点 的所有双向网络流量。Cilium 中会使用 tc BPF 能够给数据包添加自定义 annotations 的特性，对被 drop 的包打上 annotations，标记它所属的容器以及被 drop 的原因，提供了丰富的信息
+
+## Cilium 与 eBPF
+
+上文已经描述了 Pod 中的流量是如何顺利发送到 Host 的 veth 上的，接下来会介绍在 Cilium 中流量的完整路径
+
+*当前环境基于 Legacy Host Routing 模式*
+
+在开始之前，先观察一下当集群中安装了 Cilium 之后，会多出来哪些东西，这里可以直接进入 cilium agent 的 Pod，执行网络命令，因为 agent 使用的是 `hostNetwork: true`，所以它和主机是共享网络的，因此在 Pod 中查看到的网络设备也就是主机上的网络设备
+
+```shell
+$ k exec -it -n kube-system cilium-qv2cb -- ip a
+18: cilium_net@cilium_host: <BROADCAST,MULTICAST,NOARP,UP,LOWER_UP> mtu 9001 qdisc noqueue state UP group default qlen 1000
+    link/ether fa:f3:f0:8d:5e:ae brd ff:ff:ff:ff:ff:ff
+    inet6 fe80::f8f3:f0ff:fe8d:5eae/64 scope link
+       valid_lft forever preferred_lft forever
+19: cilium_host@cilium_net: <BROADCAST,MULTICAST,NOARP,UP,LOWER_UP> mtu 9001 qdisc noqueue state UP group default qlen 1000
+    link/ether 3e:87:e2:f3:58:47 brd ff:ff:ff:ff:ff:ff
+    inet 10.0.1.118/32 scope link cilium_host
+       valid_lft forever preferred_lft forever
+    inet6 fe80::3c87:e2ff:fef3:5847/64 scope link
+       valid_lft forever preferred_lft forever
+```
+
+```shell
+$ k exec -it -n kube-system cilium-qv2cb -- iptables -L
+Chain CILIUM_FORWARD (1 references)
+target     prot opt source               destination
+ACCEPT     all  --  anywhere             anywhere             /* cilium: any->cluster on cilium_host forward accept */
+ACCEPT     all  --  anywhere             anywhere             /* cilium: cluster->any on cilium_host forward accept (nodeport) */
+ACCEPT     all  --  anywhere             anywhere             /* cilium: cluster->any on lxc+ forward accept */
+ACCEPT     all  --  anywhere             anywhere             /* cilium: cluster->any on cilium_net forward accept (nodeport) */
+
+Chain CILIUM_INPUT (1 references)
+target     prot opt source               destination
+ACCEPT     all  --  anywhere             anywhere             mark match 0x200/0xf00 /* cilium: ACCEPT for proxy traffic */
+
+Chain CILIUM_OUTPUT (1 references)
+target     prot opt source               destination
+ACCEPT     all  --  anywhere             anywhere             mark match 0xa00/0xfffffeff /* cilium: ACCEPT for proxy return traffic */
+MARK       all  --  anywhere             anywhere             mark match ! 0xe00/0xf00 mark match ! 0xd00/0xf00 mark match ! 0xa00/0xe00 /* cilium: host->any mark as from host */ MARK xset 0xc00/0xf00
+```
+
+可以看到分别多出来了 2 个网络设备 `cilium_host` 和 `cilium_net`（如果使用了 overlay 模式，还会有 `cilium_vxlan`），以及 3 条 iptables 规则 `CILIUM_FORWARD`, `CILIUM_INPUT` 和 `CILIUM_OUTPUT`
+
+**cilium_host 和 cilium_net**
+
+`cilium_host` 和 `cilium_net` 是一对 veth pair
+
+通过 `route -n` 查看路由表发现，`cilium_host` 负责处理本机 pod 流量之间的路由
+
+```
+10.0.1.0        10.0.1.118        255.255.255.0   UG    0      0        0 cilium_host
+10.0.1.118        0.0.0.0         255.255.255.255 UH    0      0        0 cilium_host
+```
+
+那么当流量从同节点的 Pod1 发送到 Pod2 时，需要用到这个路由表吗？答案是不需要，之前讨论 tc 的时候有说到，tc 可以使用辅助函数获取路由表的内容，并且支持直接 redirect 流量到另一张网卡，那么只需要在 Pod1 的 lxc (veth pair) 上 attach tc ingress BPF 程序就可以直接将流量发送到 Pod2 的 lxc
+
+那么 `cilium_host` 这个虚拟网络设备的用处是什么呢？那就是用来接收跨节点的 Pod 或者是外网到 Pod 的流量。当有非本地发送过来到 Pod 的流量时，Host 上的 eth0 网卡上的 tc ingress 程序会对流量做某些处理（如果是 Pod 访问外网的回程报文则是 SNAT 还原，如果是 Pod 之间的访问则不需要操作），处理完成后将数据报文交给内核路由系统，最终送到 `cilium_host` 中，再由 cilium_host 上的 tc BPF 程序将流量 redirect 到 Pod 的 lxc
+
+除此之外，Cilium 还在 Host 的出口网卡上 attach 了 tc ingress 和 egress hook
+
+### tc BPF Program
+
+以上了解了在 Cilium 中通信会依赖三个网络设备，分别是 `eth0`, `cilium_host` 和 `lxc`
+
+那么在来看下这些设备上都被 attach 了哪些 tc hook
+
+通过 `tc filter show dev <dev_name> (ingress|egress)` 命令可以查看到 attach 的 program 名称
+
+**lxc**
+
+- ingress: `to-container`
+- egress: `from-container`
+
+`to-container`
+
+- 提取数据包中的 identity 信息（该信息由 Cilium 设置，包含了数据包所属的 namespace，service，pod 和 container 信息）
+- 检查接收容器 ingress policy
+- 如果检查通过，将数据包发送到 lxc 的对端，也就是 pod 的网卡
+
+`from_container`
+
+- 如果访问的是 service ip，先对 service ip 做负载均衡
+- 执行 DNAT，将 dst_ip 替换成 pod ip
+- 将数据包交给内核路由系统
+
+**cilium_host**
+
+- ingress: `to-host`
+- egress: `from-host`
+
+`to-host`
+
+- 解析这个包所属的 identity，并存储到包的结构体中
+- 验证 dst 的 ingress policy
+
+`from-host`
+
+- 尾调用 dst endpoint 的 ingress BPF 程序 (to-container)
+
+**eth0**
+
+- ingress: `from-netdev`
+- egress: `to-netdev`
+
+`from-netdev`
+
+- 解析这个包所属的 identity (还原SNAT)，并存储到包的结构体中
+- 将包交给内核转发
+
+`to-netdev`
+
+- 在某些场景下对数据包做 SNAT
+
+因此基于以上的前提，大概可以画出集群内的流量路径
+
+![cilium_legacy](/images/cilium_0_0_1/cilium_legacy_data_path.png)
+
+> 上图引用自 https://www.infoq.cn/article/p9vg2g9t49kpvhrckfwu
+
+1. 跨节点 Pod to Pod
+  Pod 发出的流量经过 lxc 上 tc ingress hook 的处理后发给内核协议栈进行路由查找，然后通过 eth0 的 egress 发出到达 Node2 的 eth0
+  Node2 接收流量后，先经过 Node2 物理口 eth0 的 tc ingress hook 的 eBPF 处理，然后送给 kernel stack 进行路由查找，发给 cilium_host 接口，流量经过 cilium_host 的 tc egress hook 点后，最后 redirect 到目的 Pod 的宿主机 lxc 接口上，最终送给目的 pod。
+2. 同节点 Pod to Pod
+  同节点 Pod 之间的流量可以通过 lxc 接口上的 tc ingress hook 直接 redirect 到目标 Pod，这种方法可以绕过内核网络协议栈，将数据包送往目标 Pod 的 lxc 接口，进而送给目标 Pod
+3. NodePort Local Endpoint
+  流量从 Node2 的 eth0 进入后，经过 tc ingress hook 的 DNAT 处理后，将流量交给内核协议栈路由，内核将数据包转发给 cilium_host 接口，cilium_host 的 tc egress hook 处理后将流量 redirect 到 Pod 的 lxc 接口，进而送给 Pod
+  回程数据包经过 ；xc 的 tc ingress hook 反 DNAT 后，将流量重定向到 eth0，过程不经过 kernel，最后经过 eth0 的 tc egress hook 返回给请求者
+4. NodePort Remote Endpoint
+  eth0 的 tc ingress hook 进行 DNAT 将 nodeport ip 转换成 pod ip，然后 tc egress hook 经过 SNAT 将数据包的 src ip 换成 node ip 后将流量发出
+5. Pod 访问外网
+  Pod 发出流量后，经过 lxc 的 tc ingress hook 处理后，送给内核协议栈进行路由查找，确定需要从 eth0 发出，因此流量回发给物理口 eth0，而经过物理口 eth0 的 tc egress hook 做 SNAT，将源地址转换成 Node 节点的物理接口的 IP 和 Port 发出。
+  从外网回来的反向流量，经过 Node 节点物理口 eth0 tc ingress hook 进行 SNAT 还原，然后将流量发给内核协议栈查路由，流量流到 cilium_host 接口后，经过 tc egress eBPF 程序，直接识别出是发给 Pod 的流量，将流量直接 redirect 到目的 Pod 的宿主机 lxc 接口上，最终反向流量回到 Pod
+6. 主机访问本 Pod
+  主机访问 Pod 流量使用 cilium_host 口发出，所以在 tc egress hook 点 eBPF 程序直接 redirect 到目的 Pod 的宿主机 lxc 接口上，最终发给 Pod。
+  反向流量，从 Pod 发出到宿主机的接口 lxc，经过 tc ingress hook eBPF 识别送给 kernel stack，回到宿主机上
+
+那么上面提到的 Cilium 在 iptables 中创建的三条链是用来做什么的呢？
+
+因为在 `Legacy` 模式中数据包在某些情况下仍然需要进入内核协议栈，因此仍然需要用到 iptables。通过 `FORWARD` + `POSTROUTING` 链将数据包从 lxc 接口送到 `cilium_host`，而 `INPUT` 链则是为了处理 L7 Network Policy Proxy 的情况，这个部分下面会讲
+
+### BPF Host Routing
+
+在 5.10 内核以后，Cilium 新增了 eBPF Host-Routing 功能，该功能更加速了 eBPF 数据面性能，新增了 `bpf_redirect_peer` 和 `bpf_redirect_neigh` 两个 redirect 方式
+
+- `bpf_redirect_peer`
+  可以理解成 `bpf_redirect` 的升级版，其将数据包直接送到 veth pair Pod 里面接口 `eth0` 上，而不经过宿主机的 `lxc` 接口，这样实现的好处是数据包少进入一次 cpu backlog queue 队列，该特性引入后，路由模式下，Pod -> Pod 性能接近 Node -> Node 性能
+- `bpf_redirect_neigh`
+  用来填充 pod egress 流量的 src 和 dst mac 地址
+  流量无需经过 kernel 的 route 协议栈
+  处理过程
+    - 首先会查找路由，`ip_route_output_flow()`
+    - 将 skb 和匹配的路由条目（dst entry）关联起来，`skb_dst_set()`
+    - 然后调用到 `neighbor subsystem`，`ip_finish_output2()`
+        - 填充 neighbor 信息，即 `src/dst MAC` 地址
+        - 保留 `skb->sk` 信息，因此物理网卡上的 qdisc 都能访问到这个字段
+
+在引入了该特性之后，流量路径发生了较大的变化
+
+![cilium_bpf_data_path](/images/cilium_0_0_1/cilium_bpf_data_path.png)
+
+可以看到在该场景下，除了本机访问本地 Pod，其他流量均不会经过内核协议栈，`cilium_host` 和 `cilium_net` 上
+
+1. 跨节点 Pod to Pod
+  Pod 发出的流量通过 lxc 的 tc ingress hook 中的 `redirect_neigh` 直接通过 eth0 的 egress 发出到达 Node2 的 eth0
+  Node2 的 eth0 接收流量后，先经过 Node2 物理口 eth0 的 tc ingress hook 的 eBPF 处理，然后送给 Pod2 的 lxc 上的 tc ingress hook 中的 `redirect_peer` 直接把数据送到 Pod2 的 eth0
+2. 同节点 Pod to Pod
+  不同于 Legacy 模式，直接将数据包送到目的 Pod 的 eth0 网卡
+
+以下这张图会更加直观的表示在 BPF Host Routing 模式下数据路径的简单
+
+![ebpf_hostrouting](/images/cilium_0_0_1/ebpf_hostrouting.png)
+
+## Futures
+
+### Network Policy
+
+Cilium 支持基于 `Layer 3/4/7` 的网络策略
+
+Cilium 除了兼容 Kuberentes 的 `NetworkPolicy` API，也提供了 CRD 用于定义网络策略 `CiliumNetworkPolicy`
+
+## Trouble Shooting
+
 ## Reference
 
 - [Cilium Documentation](https://docs.cilium.io/en/stable/)
-- [基于 BPF/XDP 实现 K8s Service 负载均衡 (LPC, 2020)](http://arthurchiao.art/blog/cilium-k8s-service-lb-zh/#1-k8s-%E7%BD%91%E7%BB%9C%E5%9F%BA%E7%A1%80%E8%AE%BF%E9%97%AE%E9%9B%86%E7%BE%A4%E5%86%85%E6%9C%8D%E5%8A%A1%E7%9A%84%E5%87%A0%E7%A7%8D%E6%96%B9%E5%BC%8F)
+- [网易轻舟对 CIlium 容器网络的探索和实践](https://www.infoq.cn/article/p9vg2g9t49kpvhrckfwu)
+- [Kubernetes service load-balancing at scale with BPF & XDP](https://linuxplumbersconf.org/event/7/contributions/674/)
