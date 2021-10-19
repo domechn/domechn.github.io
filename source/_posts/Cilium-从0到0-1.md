@@ -332,7 +332,7 @@ Cilium 中就使用了 cls_bpf 分类器，它在部署 cls_bpf 服务时，对�
   - 当只有单个 tc BPF 程序时，返回该 code 通知内核继续执行 skb 处理，不会带来其他副作用
 - `TC_ACT_OK`: 结束当前程序的处理，并告诉内核下一个执行的 tc BPF 程序
 - `TC_ACT_SHOT`: 通知内核丢弃数据包，返回 `NET_XIT_DROP` 给调用方表示包被丢弃
-- `TC_ACT_STOLEN`: NET_XIT_DROP` 给调用方包被丢弃，返回 `NET_XMIT_SUCCESS` 给调用方，假装这个包被正确发送
+- `TC_ACT_STOLEN`: 通知内核丢弃数据包，返回 `NET_XMIT_SUCCESS` 给调用方，假装这个包被正确发送
 - `TC_ACT_REDIRECT`: 使用这个返回码并加上 `bpf_redirect()` 辅助函数，允许重定向一个 `skb` 到同一个或另一个网络设备的 ingress 或 egress 路径。对目标网络设备没有额外的要求，只要本身是 一个网络设备就行了，在目标设备上不需要运行 `cls_bpf` 实例或其他限制
 
 **tc 使用案例**
