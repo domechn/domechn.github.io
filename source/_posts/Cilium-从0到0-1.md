@@ -560,7 +560,7 @@ Cilium 提供了三种网络策略模式
 
 ![cilium_bpf_endpoint](/images/cilium_0_0_1/cilium_bpf_endpoint.svg)
 
-上图描述了 Endpoint to Endpoint 使用了 Layer 7 NetworkPolicy 时的数据路径，上半部分为 TCP 连接建立之前的数据路径，下半部分为 TCP 连接 `ESTABLISHED` 之后数据的路径
+上图描述了 Endpoint to Endpoint 使用了 Layer 7 NetworkPolicy 时的数据路径，上半部分为默认情况下的数据路径，下半部分为使用了 socket 增强之后数据的路径
 
 ### Bandwidth Manager
 
