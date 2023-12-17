@@ -1,3 +1,4 @@
+# auto deploy hexo blog website to github pages.
 name: Deploy
 
 on:
