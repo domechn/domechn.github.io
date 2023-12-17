@@ -54,6 +54,7 @@ site_description: A minimalist theme for hexo. #The default meta description for
 menu:
   HOME: /
   BLOG: /archives
+  FOOTPRINTS: /mypages/footprints
   RSS: /atom.xml
 
 

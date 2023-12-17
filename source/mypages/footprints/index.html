@@ -1,0 +1,93 @@
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js"></script>
+    <script
+      type="text/javascript"
+      src="js/jvectormap/jquery-jvectormap-2.0.5.min.js"
+    ></script>
+    <link
+      href="js/jvectormap/jquery-jvectormap-2.0.5.css"
+      rel="stylesheet"
+      media="screen"
+    />
+
+    <script
+      type="text/javascript"
+      src="js/jvectormap/jquery-jvectormap-world-mill.js"
+    ></script>
+  </head>
+  <body>
+    <div id="map" style="height: 500px; width: 100%"></div>
+    <script>
+      $(function () {
+        $("#map").vectorMap({
+          map: "world_mill",
+
+          // backgroundColor: "transparent",
+          zoomMin: 0.9, // max zoom ratio
+          zoomMax: 2.1, // min zoom ratio
+          focusOn: {
+            x: 0.55,
+            y: 2,
+            scale: 0.9,
+          },
+          regionStyle: {
+            initial: {
+              fill: "#e5e5e5", // color of the map
+              "fill-opacity": 1, // whether to show province, 1 for show, 0 for hide
+              stroke: "none",
+              "stroke-width": 0,
+              "stroke-opacity": 1,
+            },
+            hover: {
+              fill: "#ccc", // color when mouse hover
+              "fill-opacity": 0.8,
+            },
+            selected: {
+              fill: "yellow",
+            },
+            selectedHover: {},
+          },
+          markerStyle: {
+            initial: {
+              fill: "#397ad1",
+              stroke: "#fff",
+            },
+            hover: {
+              fill: "#fd2020",
+              stroke: "#fff",
+              "fill-opacity": 0.8,
+            },
+          },
+          markers: [
+            // china
+            { latLng: [39.9, 116.41], name: "北京" },
+            { latLng: [31.24, 121.5], name: "上海" },
+            { latLng: [32.05, 118.79], name: "江苏" },
+            { latLng: [30.57, 104.06], name: "四川" },
+            { latLng: [43.81, 125.32], name: "吉林" },
+            { latLng: [36.65, 117.12], name: "山东" },
+            { latLng: [30.27, 120.15], name: "浙江" },
+            { latLng: [23.13, 113.26], name: "广东" },
+            { latLng: [28.22, 112.94], name: "湖南" },
+            { latLng: [36.62, 101.78], name: "青海" },
+            { latLng: [24.88, 102.83], name: "云南" },
+            { latLng: [26.07, 119.30], name: "福建" },
+            { latLng: [31.82, 117.23], name: "安徽" },
+            { latLng: [34.27, 108.95], name: "陕西" },
+            { latLng: [20.04, 110.20], name: "海南" },
+
+            // oversea
+            { latLng: [26.06, 50.55], name: "巴林" },
+            { latLng: [31.95, 35.91], name: "约旦" },
+            { latLng: [13.75, 100.5], name: "泰国" },
+            { latLng: [35.67, 139.65], name: "日本" },
+            { latLng: [25.2, 55.27], name: "迪拜" },
+            { latLng: [24.45, 54.37], name: "阿布扎比" },
+            { latLng: [3.13, 101.68], name: "马来西亚" },
+          ],
+        });
+      });
+    </script>
+  </body>
+</html>
