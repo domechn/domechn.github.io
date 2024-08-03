@@ -9,8 +9,6 @@ tags:
   - monorepo
 ---
 
-# ArgoCD Monorepo 性能优化之路
-
 在这篇博客中，我将分享我们在使用 ArgoCD 和 Monorepo 的过程中遇到的性能问题以及我们是如何解决这些问题的，最终实现在 ArgoCD 中使用一个 Monorepo 稳定部署超过 100k+ 应用的。
 
 ## 为什么使用 Monorepo
