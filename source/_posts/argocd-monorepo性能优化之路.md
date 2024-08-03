@@ -162,4 +162,6 @@ server:
 
 不过 argocd 提供了 `reposerver.parallelism.limit` 这个参数，可以限制 repo server 同一时间并发处理渲染请求的数量。这个值是一个经验值，可能要根据 mono repo 大小和 repo server pod resource 来调整。以我们自己的经验来看，我们的 repo 在 4G 左右，repo server resource limit 给的是 12Gi4vCPU, sidecar plugin 是 6Gi4vCPU，那么它设置成 15，repo server 几乎就不会被打到 OOM。
 
+<br/>
+
 这样一番优化完后，argocd 的性能表现终于变得稳定，几乎很少有抖动，而且理论上之后性能也不会太受到 application 数量增长的影响（也行还会有，但目前没发现）
