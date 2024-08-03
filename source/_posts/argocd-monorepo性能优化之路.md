@@ -111,7 +111,7 @@ tags:
 
 ![argocd-sync-workflow](/images/argocd_monorepo/argo-cd-workflow.jpg)
 
-经过上述优化后，我们能做到当一个 argocd 管理同一个 repo 中接近 7k 应用时，用户的发版也能在 30~50s 完成。（其中 sync global app 10s 左右，argocd sync app 在 15~35s 左右）
+经过上述优化后，我们能做到当一个 argocd 管理同一个 repo 中接近 7k 应用时，用户的发版也能在 30-50s 完成。（其中 sync global app 10s 左右，argocd sync app 在 15-35s 左右）
 而且不会影响各个用户之间的发版。
 
 #### 但是仍然存在影响 argocd 稳定性的问题
@@ -153,6 +153,8 @@ server:
 改动的 PR:
 
 [Improve performance for refreshing apps by domechn · Pull Request #1 · domechn/argo-cd (github.com)](https://github.com/domechn/argo-cd/pull/1)
+
+---
 
 **除此之外还要保证 repo server 不会因为短时间大量请求被打到 OOM**
 
