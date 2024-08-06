@@ -1,0 +1,306 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>  解决Golang使用elastic连接elasticsearch时自动转换连接地址 |    Domechn.</title>
+  <meta name="description" content="A minimalist theme for hexo.">
+  <!-- 标签页图标 -->
+  
+  <link rel="shortcut icon" href="/favicon.png" type="image/x-icon">
+  
+
+  <!-- 图标库 -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.2.0/fonts/remixicon.css" rel="stylesheet">
+  <!-- 动画库 -->
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fushaolei/cdn-white@1.0/css/animate.css"/>
+  
+  <!-- css文件 -->
+  
+<link rel="stylesheet" href="/css/white.css">
+
+  <!-- 代码高亮 -->
+  
+    
+      
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.1.1/styles/github.css">
+
+    
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="Not Bad" type="application/atom+xml">
+</head>
+
+
+<body>
+
+<div class="menu-outer">
+    <div class="menu-inner">
+      <div class="menu-site-name  animate__animated  animate__fadeInUp">
+        <a href="/">
+          Domechn.
+        </a>
+        
+      </div>
+      <div class="menu-group">
+        <ul class="menu-ul">
+        
+          <a href="/" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              HOME
+            </li>
+          </a>
+        
+          <a href="/archives" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              BLOG
+            </li>
+          </a>
+        
+          <a href="/mypages/footprints" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              FOOTPRINTS
+            </li>
+          </a>
+        
+          <a href="/atom.xml" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              RSS
+            </li>
+          </a>
+        
+        
+        
+        <a href="/search">
+          <li class="menu-li  animate__animated  animate__fadeInUp">
+            <i class="ri-search-line"></i>
+          </li>
+        </a>
+        
+          <li class="menu-li animate__animated  animate__fadeInUp" id="mobile-menu">
+            <i class="ri-menu-line"></i>
+          </li>
+        
+        </ul>
+
+      </div>
+
+    </div>
+</div>
+<div id="mobile-main" class="animate__animated  animate__fadeIn">
+  <div class="mobile-menu-inner">
+    <div class="mobile-menu-site-name animate__animated  animate__fadeInUp">
+      <a href="/">
+        Domechn.
+      </a>
+    </div>
+    <div class="mobile-menu-group" id="mobile-close">
+      <i class="ri-close-line"></i>
+    </div>
+
+  </div>
+
+  <div class="mobile-menu-div">
+  
+    <a href="/" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>HOME</span>
+      </div>
+    </a>
+  
+    <a href="/archives" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>BLOG</span>
+      </div>
+    </a>
+  
+    <a href="/mypages/footprints" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>FOOTPRINTS</span>
+      </div>
+    </a>
+  
+    <a href="/atom.xml" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>RSS</span>
+      </div>
+    </a>
+  
+  
+    <a href="/search">  
+      <div class="mobile-menu-child  animate__animated  animate__fadeInUp">
+        <i class="ri-search-line"></i>
+      </div>
+    </a>
+    
+  </div>
+
+
+</div>
+
+<div class="body-outer">
+  <div class="body-inner">
+    
+<article class="post-inner">
+  <div class="post-content-outer">
+    <div class="post-intro">
+      <div class="post-title animate__animated  animate__fadeInUp">解决golang使用elastic连接elasticsearch时自动转换连接地址</div>
+      <div class="meta-intro animate__animated  animate__fadeInUp">Feb 28 2019</div>
+      
+    </div>
+    <div class="post-content-inner">
+      <div class="post-content-inner-space">
+
+      </div>
+      <div class="post-content-main animate__animated  animate__fadeInUp">
+        <!-- top型目录 -->
+        
+        <p>使用<a target="_blank" rel="noopener" href="https://github.com/olivere/elastic">olivere&#x2F;<em>elastic</em></a>连接elasticsearch时，发现连接地址明明输入的时候是公网地址，但是连接时会自动转换成内网地址或者docker中的ip地址，导致服务连接不上。</p>
+<pre><code>// 自动转换成docker中的ip导致无法连接服务
+time=&quot;2019-02-15T20:04:26+08:00&quot; level=error msg=&quot;Head http://172.17.0.2:9200: context deadline exceeded&quot;
+</code></pre>
+<h2 id="解决方法"><a href="#解决方法" class="headerlink" title="解决方法"></a>解决方法</h2><pre><code class="golang">client, _ := elastic.NewClient(
+  // ...
+  // 将sniff设置为false后，便不会自动转换地址
+   elastic.SetSniff(false),
+)
+</code></pre>
+<h2 id="源码解析"><a href="#源码解析" class="headerlink" title="源码解析"></a>源码解析</h2><pre><code class="golang">// sniff 会请求http://ip:port/_nodes/http，将其返回的url list作为新的url list。
+// 如果snifferEnabled被设置为false，那么则不启动该功能。
+func (c *Client) sniff(parentCtx context.Context, timeout time.Duration) error &#123;
+ c.mu.RLock()
+ if !c.snifferEnabled &#123;
+  c.mu.RUnlock()
+  return nil
+ &#125;
+
+ // Use all available URLs provided to sniff the cluster.
+ var urls []string
+ urlsMap := make(map[string]bool)
+
+ // Add all URLs provided on startup
+ for _, url := range c.urls &#123;
+  urlsMap[url] = true
+  urls = append(urls, url)
+ &#125;
+ c.mu.RUnlock()
+
+ // Add all URLs found by sniffing
+ c.connsMu.RLock()
+ for _, conn := range c.conns &#123;
+  if !conn.IsDead() &#123;
+   url := conn.URL()
+   if _, found := urlsMap[url]; !found &#123;
+    urls = append(urls, url)
+   &#125;
+  &#125;
+ &#125;
+ c.connsMu.RUnlock()
+
+ if len(urls) == 0 &#123;
+  return errors.Wrap(ErrNoClient, &quot;no URLs found&quot;)
+ &#125;
+
+ // Start sniffing on all found URLs
+ ch := make(chan []*conn, len(urls))
+
+ ctx, cancel := context.WithTimeout(parentCtx, timeout)
+ defer cancel()
+
+ for _, url := range urls &#123;
+        // sniffNode 方法使用http，请求了对应的url，将结果封装后返回
+  go func(url string) &#123; ch &lt;- c.sniffNode(ctx, url) &#125;(url)
+ &#125;
+
+ // Wait for the results to come back, or the process times out.
+ for &#123;
+  select &#123;
+  case conns := &lt;-ch:
+   if len(conns) &gt; 0 &#123;
+    c.updateConns(conns)
+    return nil
+   &#125;
+  case &lt;-ctx.Done():
+   if err := ctx.Err(); err != nil &#123;
+    switch &#123;
+    case IsContextErr(err):
+     return err
+    &#125;
+    return errors.Wrapf(ErrNoClient, &quot;sniff timeout: %v&quot;, err)
+   &#125;
+   // We get here if no cluster responds in time
+   return errors.Wrap(ErrNoClient, &quot;sniff timeout&quot;)
+  &#125;
+ &#125;
+&#125;
+</code></pre>
+
+        <!-- 分类文章 -->
+        
+      </div>
+      <div class="post-content-inner-space">
+        
+          <div class="space-toc-main animate__animated  animate__fadeInUp">
+            <ol class="space-toc"><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#%E8%A7%A3%E5%86%B3%E6%96%B9%E6%B3%95"><span class="space-toc-text">解决方法</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#%E6%BA%90%E7%A0%81%E8%A7%A3%E6%9E%90"><span class="space-toc-text">源码解析</span></a></li></ol>
+           </div>
+        
+      </div>
+   </div>
+    <!-- 评论 -->
+    
+  </div>
+</article>
+  </div>
+</div>
+
+
+
+<!-- 如果是home模式的话，不在首页就显示footer，如果不是home模式的话 所有都显示footer -->
+
+  <div class="footer-outer animate__animated  animate__fadeInUp">
+    <div class="footer-inner">
+    <div class="footer-text">
+    <p>Power by <a target="_blank" rel="noopener" href="http://hexo.io/">Hexo</a> Theme by <a target="_blank" rel="noopener" href="https://github.com/FuShaoLei/hexo-theme-white">White</a></p>
+
+    </div>
+    <div class="footer-contact">
+    <ul class="footer-ul">
+        
+        <li class="footer-li">
+            <a href="https://github.com/domechn" target="_blank">
+                <i class="ri-github-line"></i>
+            </a>
+        </li>
+        
+        <li class="footer-li">
+            <a href="mailto:domdoumc@gmail.com" target="_blank">
+                <i class="ri-mail-line"></i>
+            </a>
+        </li>
+        
+    </ul>
+    </div>
+    </div>
+</div>
+
+
+
+
+
+
+<script src="/js/white.js"></script>
+
+
+
+    
+      
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.1/build/highlight.min.js"></script>
+
+      <script>hljs.initHighlightingOnLoad();</script>
+    
+
+</body>
+</html>
