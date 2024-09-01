@@ -9,7 +9,9 @@ tags:
   - monorepo
 ---
 
-在这篇博客中，我将分享我们在使用 ArgoCD 和 Monorepo 的过程中遇到的性能问题以及我们是如何解决这些问题的，最终实现在 ArgoCD 中使用一个 Monorepo 稳定部署超过 10k+ 应用的。
+> 本文中 ArgoCD 为 2.8.x 版本。
+
+在这篇博客中，我将分享我们在使用 ArgoCD 和 Monorepo 的过程中遇到的性能问题以及我们是如何解决这些问题的，最终实现在 ArgoCD 中使用一个 Monorepo 稳定部署超过 100k+ 应用的。
 
 ## 为什么使用 Monorepo
 
@@ -64,7 +66,7 @@ tags:
 
   每次 ArgoCD `refresh` 或 `sync` 应用时都会请求 repo server 获取 `helm/kustomize` 渲染后的 K8s YAML 文件。由于每个 repo server pod 对同一个 repo 一次只能处理一个请求，而我们使用的是 mono repo（只有一个 repo），因此 repo server 的数量限制了 ArgoCD 的 sync 并发数。增加 repo server 的数量可以明显提高发版高峰期的 sync 效率。
 
-  但是，repo server 每次启动时会全量 clone repo（以我们现在的 mono repo 为例，有 40 万个 commits，虽然代码只占 12M，但仓库总大小超过 4Gi，全量克隆一次需要花费 3-4 min）。如果触发 HPA 导致 repo server 频繁扩缩容，反而会影响 sync 性能。因此，我们通常会为 repo server 配置足够的 replicas 以应对日常发版需求。当需要批量变更应用时，再手动扩容 repo server。
+  但是，repo server 每次启动时会全量 clone repo（以我们现在的 mono repo 为例，有 40 万个 commits，虽然代码只占 150M，但仓库总大小超过 4Gi，全量克隆一次需要花费 3-4 min）。如果触发 HPA 导致 repo server 频繁扩缩容，反而会影响 sync 性能。因此，我们通常会为 repo server 配置足够的 replicas 以应对日常发版需求。当需要批量变更应用时，再手动扩容 repo server。
 
 - **关闭 auto refresh，将 appResyncPeriod 设置成 0**：
 
