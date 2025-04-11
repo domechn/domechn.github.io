@@ -1,0 +1,1066 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>  kubeDNS和coreDNS |    Domechn.</title>
+  <meta name="description" content="A minimalist theme for hexo.">
+  <!-- 标签页图标 -->
+  
+  <link rel="shortcut icon" href="/favicon.png" type="image/x-icon">
+  
+
+  <!-- 图标库 -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.2.0/fonts/remixicon.css" rel="stylesheet">
+  <!-- 动画库 -->
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fushaolei/cdn-white@1.0/css/animate.css"/>
+  
+  <!-- css文件 -->
+  
+<link rel="stylesheet" href="/css/white.css">
+
+  <!-- 代码高亮 -->
+  
+    
+      
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.1.1/styles/github.css">
+
+    
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="Not Bad" type="application/atom+xml">
+</head>
+
+
+<body>
+
+<div class="menu-outer">
+    <div class="menu-inner">
+      <div class="menu-site-name  animate__animated  animate__fadeInUp">
+        <a href="/">
+          Domechn.
+        </a>
+        
+      </div>
+      <div class="menu-group">
+        <ul class="menu-ul">
+        
+          <a href="/" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              HOME
+            </li>
+          </a>
+        
+          <a href="/archives" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              BLOG
+            </li>
+          </a>
+        
+          <a href="/mypages/footprints" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              FOOTPRINTS
+            </li>
+          </a>
+        
+          <a href="/atom.xml" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              RSS
+            </li>
+          </a>
+        
+        
+        
+        <a href="/search">
+          <li class="menu-li  animate__animated  animate__fadeInUp">
+            <i class="ri-search-line"></i>
+          </li>
+        </a>
+        
+          <li class="menu-li animate__animated  animate__fadeInUp" id="mobile-menu">
+            <i class="ri-menu-line"></i>
+          </li>
+        
+        </ul>
+
+      </div>
+
+    </div>
+</div>
+<div id="mobile-main" class="animate__animated  animate__fadeIn">
+  <div class="mobile-menu-inner">
+    <div class="mobile-menu-site-name animate__animated  animate__fadeInUp">
+      <a href="/">
+        Domechn.
+      </a>
+    </div>
+    <div class="mobile-menu-group" id="mobile-close">
+      <i class="ri-close-line"></i>
+    </div>
+
+  </div>
+
+  <div class="mobile-menu-div">
+  
+    <a href="/" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>HOME</span>
+      </div>
+    </a>
+  
+    <a href="/archives" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>BLOG</span>
+      </div>
+    </a>
+  
+    <a href="/mypages/footprints" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>FOOTPRINTS</span>
+      </div>
+    </a>
+  
+    <a href="/atom.xml" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>RSS</span>
+      </div>
+    </a>
+  
+  
+    <a href="/search">  
+      <div class="mobile-menu-child  animate__animated  animate__fadeInUp">
+        <i class="ri-search-line"></i>
+      </div>
+    </a>
+    
+  </div>
+
+
+</div>
+
+<div class="body-outer">
+  <div class="body-inner">
+    
+<article class="post-inner">
+  <div class="post-content-outer">
+    <div class="post-intro">
+      <div class="post-title animate__animated  animate__fadeInUp">kubeDNS和coreDNS</div>
+      <div class="meta-intro animate__animated  animate__fadeInUp">Aug 07 2019</div>
+      
+    </div>
+    <div class="post-content-inner">
+      <div class="post-content-inner-space">
+
+      </div>
+      <div class="post-content-main animate__animated  animate__fadeInUp">
+        <!-- top型目录 -->
+        
+        <p>本篇文章主要围绕两种 DNS Server 的实现方式展开，会比较两种 Server 的优缺点。</p>
+<p>在说两个 Service 之前，我们先来了解一下在k8s中域名是如何被解析的。</p>
+<p>我们都知道，在 k8s 中，一个 Pod 如果要访问同 Namespace 下的 Service（比如 user-svc），那么只需要curl user-svc。如果 Pod 和 Service 不在同一域名下，那么就需要在 Service Name 之后添加上 Service 所在的 Namespace（比如 beta），curl user-svc.beta。那么 k8s 是如何知道这些域名是内部域名并为他们做解析的呢？</p>
+<h2 id="DNS-In-Kubernetes"><a href="#DNS-In-Kubernetes" class="headerlink" title="DNS In Kubernetes"></a>DNS In Kubernetes</h2><h3 id="x2F-etc-x2F-resolv-conf"><a href="#x2F-etc-x2F-resolv-conf" class="headerlink" title="&#x2F;etc&#x2F;resolv.conf"></a>&#x2F;etc&#x2F;resolv.conf</h3><p>resolv.conf 是 DNS 域名解析的配置文件。每行都会以一个关键字开头，然后跟配置参数。这里主要使用到的关键词有3个。</p>
+<ul>
+<li>nameserver   #定义 DNS 服务器的 IP 地址</li>
+<li>search       #定义域名的搜索列表，当查询的域名中包含的 <code>.</code> 的数量少于 <code>options.ndots</code> 的值时，会依次匹配列表中的每个值</li>
+<li>options      #定义域名查找时的配置信息</li>
+</ul>
+<p>那么我们进入一个 Pod 查看它的 resolv.conf</p>
+<pre><code class="conf">nameserver 100.64.0.10
+search default.svc.cluster.local svc.cluster.local cluster.local
+options ndots:5
+</code></pre>
+<blockquote>
+<p>这里的 nameserver、search 和 options 都是可以通过 dnsConfig 字段进行配置的，<a target="_blank" rel="noopener" href="https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/">官方文档</a>中已有详细的讲述</p>
+</blockquote>
+<p>上述配置文件 resolv.conf 是 <code>dnsPolicy: ClusterFirst</code> 情况下，k8s 为 Pod 自动生成的，这里的 nameserver 所对应的地址正是 DNS Service 的Cluster IP（该值在启动 kubelet 的时候，通过 clusterDNS 指定）。所以，从集群内请求的所有的域名解析都需要经过 DNS Service 进行解析，不管是 k8s 内部域名还是外部域名。</p>
+<p>可以看到这里的 search 域默认包含了 namespace.svc.cluster.local、svc.cluster.local 和 cluster.local 三种。当我们在 Pod 中访问 <code>a</code> Service时（ <code>curl a</code> ），会选择nameserver 100.64.0.10 进行解析，然后依次带入 search 域进行 DNS 查找，直到找到为止。</p>
+<pre><code class="bash"># curl a
+a.default.svc.cluster.local
+</code></pre>
+<p>显然因为 Pod 和 <code>a</code> Service 在同一 Namespace 下，所以第一次 lookup 就能找到。</p>
+<p>如果 Pod 要访问不同 Namespace（例如： <code>beta</code> ）下的 Service <code>b</code> （ <code>curl b.beta</code> ），会经过两次 DNS 查找，分别是</p>
+<pre><code class="bash"># curl b.beta
+b.beta.default.svc.cluster.local（未找到）
+b.beta.svc.cluster.local（找到）
+</code></pre>
+<p>正是因为 search 的顺序性，所以访问同一 Namespace 下的 Service， <code>curl a</code> 是要比 <code>curl a.default</code> 的效率更高的，因为后者多经过了一次 DNS 解析。</p>
+<pre><code class="bash"># curl a
+a.default.svc.cluster.local
+# curl a.default
+b.default.default.svc.cluster.local（未找到）
+b.default.svc.cluster.local（找到）
+</code></pre>
+<h3 id="那么当Pod中访问外部域名时仍然需要走search域吗？"><a href="#那么当Pod中访问外部域名时仍然需要走search域吗？" class="headerlink" title="那么当Pod中访问外部域名时仍然需要走search域吗？"></a>那么当Pod中访问外部域名时仍然需要走search域吗？</h3><p>这个答案，不能说肯定也不能说否定，看情况，可以说，大部分情况要走 search 域。</p>
+<p>以 <code>domgoer.com</code> 为例，通过抓包的方式，在某一个Pod中访问 domgoer.com ，可以看到 DNS 查找的过程，都产生了什么样的数据包。首先先进入 DNS 容器的网络。</p>
+<blockquote>
+<p>ps: 由于 DNS 容器往往不具备 bash，所以不能通过 docker exec 的方式进入容器抓包，需要采用其他方法</p>
+</blockquote>
+<pre><code class="bash">// 1.找到容器ID，打印它的NS ID
+docker inspect --format &quot;&#123;&#123;.State.Pid&#125;&#125;&quot; container_id
+// 2.进入此容器的Namespace
+nsenter -n -t pid
+// 3.DNS抓包
+tcpdump -i eth0 -N udp dst port 53
+</code></pre>
+<p>在其他容器中进行domgoer.com域名查找</p>
+<pre><code class="bash">nslookup domgoer.com dns_container_ip
+</code></pre>
+<blockquote>
+<p>指定 dns_container_ip，是为了避免有多个DNS容器的情况，DNS请求会分到各个容器。这样可以让 DNS 请求只发往这个地址，这样抓包的数据才会完整。</p>
+</blockquote>
+<p>可以看到如下的结果：</p>
+<pre><code class="bash">17:01:28.732260 IP 172.20.92.100.36326 &gt; nodexxxx.domain: 4394+ A? domgoer.com.default.svc.cluster.local. (50)
+17:01:28.733158 IP 172.20.92.100.49846 &gt; nodexxxx.domain: 60286+ A? domgoer.com.svc.cluster.local. (45)
+17:01:28.733888 IP 172.20.92.100.51933 &gt; nodexxxx.domain: 63077+ A? domgoer.com.cluster.local. (41)
+17:01:28.734588 IP 172.20.92.100.33401 &gt; nodexxxx.domain: 27896+ A? domgoer.com. (27)
+17:01:28.734758 IP nodexxxx.34138 &gt; 192.168.x.x.domain: 27896+ A? domgoer.com. (27)
+</code></pre>
+<p>可以看到在真正解析 domgoer.com 之前，经历了 domgoer.com.default.svc.cluster.local. -&gt; domgoer.com.svc.cluster.local. -&gt; domgoer.com.cluster.local. -&gt; domgoer.com.</p>
+<p>这样也就意味着有3次DNS请求是浪费的，没有意义的。</p>
+<h3 id="如何避免这样的情况"><a href="#如何避免这样的情况" class="headerlink" title="如何避免这样的情况"></a>如何避免这样的情况</h3><p>在研究如何避免之前可以下思考一下造成这种情况的原因。在 &#x2F;etc&#x2F;resolv.conf 文件中，我们可以看到 <code>options</code> 中有个配置项 <strong>ndots:5</strong> 。</p>
+<p>ndots:5，表示：如果需要 lookup 的 Domain 中包含少于5个 <code>.</code> ，那么将使用非绝对域名，如果需要查询的 DNS 中包含大于或等于5个 <code>.</code> ，那么就会使用绝对域名。如果是绝对域名则不会走 search 域，如果是非绝对域名，就会按照 search 域中进行逐一匹配查询，如果 search 走完了都没有找到，那么就会使用 <code>原域名.（domgoer.com.）</code> 的方式作为绝对域名进行查找。</p>
+<p>综上可以找到两种优化的方法</p>
+<ol>
+<li><p>直接使用绝对域名</p>
+<p> 这是最简单直接的优化方式，可以直接在要访问的域名后面加上 <code>.</code> 如：domgoer.com. ，这样就会避免走 search 域进行匹配。</p>
+</li>
+<li><p>配置ndots</p>
+<p> 还记得之前说过 &#x2F;etc&#x2F;resolv.conf 中的参数都可以通过k8s中的 <code>dnsConfig</code> 字段进行配置。这就允许你根据你自己的需求配置域名解析的规则。</p>
+<p> 例如 当域名中包含两个 <code>.</code> 或以上时，就能使用绝对域名直接进行域名解析。</p>
+<pre><code class="yaml">apiVersion: v1
+kind: Pod
+metadata:
+namespace: default
+name: dns-example
+spec:
+containers:
+- name: test
+  image: nginx
+dnsConfig:
+  options:
+  - name: ndots
+    value: 2
+</code></pre>
+</li>
+</ol>
+<h3 id="Kubernetes-DNS-策略"><a href="#Kubernetes-DNS-策略" class="headerlink" title="Kubernetes DNS 策略"></a>Kubernetes DNS 策略</h3><p>在k8s中，有4中DNS策略，分别是 <code>ClusterFirstWithHostNet</code> 、<code>ClusterFirst</code> 、<code>Default</code> 、和 <code>None</code>，这些策略可以通过 <code>dnsPolicy</code> 这个字段来定义</p>
+<p>如果在初始化 Pod、Deployment 或者 RC 等资源时没有定义，则会默认使用 <code>ClusterFirst</code> 策略</p>
+<ol>
+<li><p>ClusterFirstWithHostNet</p>
+<p> 当一个 Pod 以 HOST 模式（和宿主机共享网络）启动时，这个 POD 中的所有容器都会使用宿主机的&#x2F;etc&#x2F;resolv.conf 配置进行 DNS 查询，但是如果你还想继续使用 Kubernetes 的 DNS 服务，<br> 就需要将 dnsPolicy 设置为 ClusterFirstWithHostNet。</p>
+</li>
+<li><p>ClusterFirst</p>
+<p> 使用这是方式表示 Pod 内的 DNS 优先会使用 k8s 集群内的DNS服务，也就是会使用 kubedns 或者  coredns 进行域名解析。如果解析不成功，才会使用宿主机的 DNS 配置进行解析。</p>
+</li>
+<li><p>Default</p>
+<p> 这种方式，会让 kubelet 来绝定 Pod 内的 DNS 使用哪种 DNS 策略。kubelet 的默认方式，其实就是使用宿主机的 &#x2F;etc&#x2F;resolv.conf 来进行解析。你可以通过设置 kubelet 的启动参数，<br> –resolv-conf&#x3D;&#x2F;etc&#x2F;resolv.conf 来决定 DNS 解析文件的地址</p>
+</li>
+<li><p>None</p>
+<p> 这种方式顾名思义，不会使用集群和宿主机的 DNS 策略。而是和 dnsConfig 配合一起使用，来自定义 DNS 配置，否则在提交修改时报错。</p>
+</li>
+</ol>
+<h2 id="kubeDNS"><a href="#kubeDNS" class="headerlink" title="kubeDNS"></a><a target="_blank" rel="noopener" href="https://github.com/kubernetes/dns">kubeDNS</a></h2><h3 id="结构"><a href="#结构" class="headerlink" title="结构"></a>结构</h3><p>kubeDNS由3个部分组成。</p>
+<ol>
+<li>kubedns: 依赖 <code>client-go</code> 中的 <code>informer</code> 机制监视 k8s 中的 <code>Service</code> 和 <code>Endpoint</code> 的变化，并将这些结构维护进内存来服务内部 DNS 解析请求。</li>
+<li>dnsmasq: 区分 Domain 是集群内部还是外部，给外部域名提供上游解析，内部域名发往 10053 端口，并将解析结果缓存，提高解析效率。</li>
+<li>sidecar: 对 kubedns 和 dnsmasq 进行健康检查和收集监控指标。</li>
+</ol>
+<p>以下是结构图</p>
+<p>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="/images/kubeDNS%E5%92%8CcoreDNS/kube_dns_structure.png" >
+        </sapn>
+      </p>
+<h3 id="kubedns"><a href="#kubedns" class="headerlink" title="kubedns"></a>kubedns</h3><p>在 kubedns 包含两个部分, kubedns 和 skydns。</p>
+<p>其中 kubedns 是负责监听 k8s 集群中的 <code>Service</code> 和 <code>Endpoint</code> 的变化，并将这些变化通过 <code>treecache</code> 的数据结构缓存下来，作为 Backend 给 skydns 提供 Record。<br>而真正负责dns解析的其实是 <code>skydns</code>（skydns 目前有两个版本 skydns1 和 skydns2，下面所说的是 skydns2，也是当前 kubedns 所使用的版本）。</p>
+<p>我们可以先看下 treecache，以下是 treecache 的数据结构</p>
+<pre><code class="go">// /dns/pkg/dns/treecache/treecache.go#54
+type treeCache struct &#123;
+    ChildNodes map[string]*treeCache
+    Entries    map[string]interface&#123;&#125;
+&#125;
+</code></pre>
+<p>我们再看一组实际的数据</p>
+<pre><code class="json">&#123;
+    &quot;ChildNodes&quot;: &#123;
+        &quot;local&quot;: &#123;
+            &quot;ChildNodes&quot;: &#123;
+                &quot;cluster&quot;: &#123;
+                    &quot;ChildNodes&quot;: &#123;
+                        &quot;svc&quot;: &#123;
+                            &quot;ChildNodes&quot;: &#123;
+                                &quot;namespace&quot;: &#123;
+                                    &quot;ChildNodes&quot;: &#123;
+                                        &quot;service_name&quot;: &#123;
+                                            &quot;ChildNodes&quot;: &#123;
+                                                &quot;_tcp&quot;: &#123;
+                                                    &quot;ChildNodes&quot;: &#123;
+                                                        &quot;_http&quot;: &#123;
+                                                            &quot;ChildNodes&quot;: &#123;&#125;,
+                                                            &quot;Entries&quot;: &#123;
+                                                                &quot;6566333238383366&quot;: &#123;
+                                                                    &quot;host&quot;: &quot;service.namespace.svc.cluster.local.&quot;,
+                                                                    &quot;port&quot;: 80,
+                                                                    &quot;priority&quot;: 10,
+                                                                    &quot;weight&quot;: 10,
+                                                                    &quot;ttl&quot;: 30
+                                                                &#125;
+                                                            &#125;,
+                                                        &#125;
+                                                    &#125;,
+                                                    &quot;Entries&quot;: &#123;&#125;
+                                                &#125;
+                                            &#125;,
+                                            &quot;Entries&quot;: &#123;
+                                                &quot;3864303934303632&quot;: &#123;
+                                                    &quot;host&quot;: &quot;100.70.28.188&quot;,
+                                                    &quot;priority&quot;: 10,
+                                                    &quot;weight&quot;: 10,
+                                                    &quot;ttl&quot;: 30
+                                                &#125;
+                                            &#125;
+                                        &#125;
+                                    &#125;,
+                                    &quot;Entries&quot;: &#123;&#125;
+                                &#125;
+                            &#125;,
+                            &quot;Entries&quot;: &#123;&#125;
+                        &#125;
+                    &#125;,
+                    &quot;Entries&quot;: &#123;&#125;
+                &#125;
+            &#125;,
+            &quot;Entries&quot;: &#123;&#125;
+        &#125;
+    &#125;,
+    &quot;Entries&quot;: &#123;&#125;
+&#125;
+</code></pre>
+<p>treeCache 的结构类似于目录树。从根节点到叶子节点的每个路径与一个域名是相对应的，顺序是颠倒的。它的叶子节点只包含 Entries，非叶子节点只包含 ChildNodes。叶子节点中保存的就是 SkyDNS 定义的 msg.Service 结构，可以理解为 DNS 记录。</p>
+<p>在 Records 接口方法实现中，只需根据域名查找到对应的叶子节点，并返回叶子节点中保存的所有msg.Service 数据。K8S 就是通过这样的一个数据结构来保存 DNS 记录的，并替换了 Etcd（ skydns2 默认使用 etcd 作为存储），来提供基于内存的高效存储。</p>
+<p>我们可以直接阅读代码来了解 kubedns 的启动流程。</p>
+<p>首先看它的结构体</p>
+<pre><code class="go">// dns/cmd/kube-dns/app/server.go#43
+type KubeDNSServer struct &#123;
+    // DNS domain name. = cluster.local.
+    domain         string
+    healthzPort    int
+    // skydns启动的地址和端口
+    dnsBindAddress string
+    dnsPort        int
+    nameServers    string
+    kd             *dns.KubeDNS
+&#125;
+</code></pre>
+<p>下来可以看到一个叫 <code>NewKubeDNSServerDefault</code> 的函数，它初始化了 KubeDNSServer。并执行 <code>server.Run()</code> 启动了服务。那么我们来看下 <code>NewKubeDNSServerDefault</code> 这个方法做了什么。</p>
+<pre><code class="go">// dns/cmd/kube-dns/app/server.go#53
+func NewKubeDNSServerDefault(config *options.KubeDNSConfig) *KubeDNSServer &#123;
+    kubeClient, err := newKubeClient(config)
+    if err != nil &#123;
+      glog.Fatalf(&quot;Failed to create a kubernetes client: %v&quot;, err)
+    &#125;
+
+    // 同步配置文件，如果观察到配置信息改变，就会重启skydns
+    var configSync dnsconfig.Sync
+    switch &#123;
+    // 同时配置了 configMap 和 configDir 会报错
+    case config.ConfigMap != &quot;&quot; &amp;&amp; config.ConfigDir != &quot;&quot;:
+      glog.Fatal(&quot;Cannot use both ConfigMap and ConfigDir&quot;)
+    case config.ConfigMap != &quot;&quot;:
+      configSync = dnsconfig.NewConfigMapSync(kubeClient, config.ConfigMapNs, config.ConfigMap)
+    case config.ConfigDir != &quot;&quot;:
+      configSync = dnsconfig.NewFileSync(config.ConfigDir, config.ConfigPeriod)
+    default:
+      conf := dnsconfig.Config&#123;Federations: config.Federations&#125;
+      if len(config.NameServers) &gt; 0 &#123;
+        conf.UpstreamNameservers = strings.Split(config.NameServers, &quot;,&quot;)
+      &#125;
+      configSync = dnsconfig.NewNopSync(&amp;conf)
+    &#125;
+
+    return &amp;KubeDNSServer&#123;
+      domain:         config.ClusterDomain,
+      healthzPort:    config.HealthzPort,
+      dnsBindAddress: config.DNSBindAddress,
+      dnsPort:        config.DNSPort,
+      nameServers:    config.NameServers,
+      kd:             dns.NewKubeDNS(kubeClient, config.ClusterDomain, config.InitialSyncTimeout, configSync),
+    &#125;
+&#125;
+
+// 启动skydns server
+func (d *KubeDNSServer) startSkyDNSServer() &#123;
+    skydnsConfig := &amp;server.Config&#123;
+      Domain:  d.domain,
+      DnsAddr: fmt.Sprintf(&quot;%s:%d&quot;, d.dnsBindAddress, d.dnsPort),
+    &#125;
+    if err := server.SetDefaults(skydnsConfig); err != nil &#123;
+      glog.Fatalf(&quot;Failed to set defaults for Skydns server: %s&quot;, err)
+    &#125;
+    // 使用d.kd作为存储的后端，因为kubedns实现了skydns.Backend的接口
+    s := server.New(d.kd, skydnsConfig)
+    if err := metrics.Metrics(); err != nil &#123;
+      glog.Fatalf(&quot;Skydns metrics error: %s&quot;, err)
+    &#125; else if metrics.Port != &quot;&quot; &#123;
+      glog.V(0).Infof(&quot;Skydns metrics enabled (%v:%v)&quot;, metrics.Path, metrics.Port)
+    &#125; else &#123;
+      glog.V(0).Infof(&quot;Skydns metrics not enabled&quot;)
+    &#125;
+
+    d.kd.SkyDNSConfig = skydnsConfig
+    go s.Run()
+&#125;
+</code></pre>
+<p>可以看到这里 <code>dnsconfig</code> 会返回一个 <code>configSync</code> 的 interface 用来实时同步配置，也就是 <code>kube-dns</code> 这个 configmap，或者是本地的 dir（但一般来说这个 dir 也是由 configmap 挂载进去的）。在方法的最后 <code>dns.NewKubeDNS</code> 返回一个 KubeDNS 的结构体。那么我们看下这个函数初始化了哪些东西。</p>
+<pre><code class="go">// dns/pkg/dnsdns.go#124
+func NewKubeDNS(client clientset.Interface, clusterDomain string, timeout time.Duration, configSync config.Sync) *KubeDNS &#123;
+    kd := &amp;KubeDNS&#123;
+      kubeClient:          client,
+      domain:              clusterDomain,
+      cache:               treecache.NewTreeCache(),
+      cacheLock:           sync.RWMutex&#123;&#125;,
+      nodesStore:          kcache.NewStore(kcache.MetaNamespaceKeyFunc),
+      reverseRecordMap:    make(map[string]*skymsg.Service),
+      clusterIPServiceMap: make(map[string]*v1.Service),
+      domainPath:          util.ReverseArray(strings.Split(strings.TrimRight(clusterDomain, &quot;.&quot;), &quot;.&quot;)),
+      initialSyncTimeout:  timeout,
+
+      configLock: sync.RWMutex&#123;&#125;,
+      configSync: configSync,
+    &#125;
+
+    kd.setEndpointsStore()
+    kd.setServicesStore()
+
+    return kd
+&#125;
+</code></pre>
+<p>可以看到<code>kd.setEndpointsStore()</code> 和 <code>kd.setServicesStore()</code> 这两个方法会在 <code>informer</code>中注册 <code>Service</code> 和 <code>Endpoint</code> 的回调，用来观测这些资源的变动并作出相应的调整。</p>
+<p>下面我们看下当集群中新增一个 Service,kubedns 会以怎样的方式处理。</p>
+<pre><code class="go">// dns/pkg/dns/dns.go#499
+func (kd *KubeDNS) newPortalService(service *v1.Service) &#123;
+    // 构建了一个空的叶子节点, recordLabel是clusterIP经过 FNV-1a hash运算后得到的32位数字
+    // recordValue 的结构
+    // &amp;msg.Service&#123;
+    //  Host:     service.Spec.ClusterIP,
+    //  Port:     0,
+    //  Priority: defaultPriority,
+    //  Weight:   defaultWeight,
+    //  Ttl:      defaultTTL,
+    // &#125;
+    subCache := treecache.NewTreeCache()
+    recordValue, recordLabel := util.GetSkyMsg(service.Spec.ClusterIP, 0)
+    subCache.SetEntry(recordLabel, recordValue, kd.fqdn(service, recordLabel))
+
+    // 查看service的ports列表，将每个port信息转换成skydns.Service并加入上面构建的叶子节点
+    for i := range service.Spec.Ports &#123;
+      port := &amp;service.Spec.Ports[i]
+      if port.Name != &quot;&quot; &amp;&amp; port.Protocol != &quot;&quot; &#123;
+        srvValue := kd.generateSRVRecordValue(service, int(port.Port))
+
+        l := []string&#123;&quot;_&quot; + strings.ToLower(string(port.Protocol)), &quot;_&quot; + port.Name&#125;
+
+        subCache.SetEntry(recordLabel, srvValue, kd.fqdn(service, append(l, recordLabel)...), l...)
+      &#125;
+    &#125;
+    subCachePath := append(kd.domainPath, serviceSubdomain, service.Namespace)
+    host := getServiceFQDN(kd.domain, service)
+    reverseRecord, _ := util.GetSkyMsg(host, 0)
+
+    kd.cacheLock.Lock()
+    defer kd.cacheLock.Unlock()
+    // 将构建好的叶子节点加入treecache
+    kd.cache.SetSubCache(service.Name, subCache, subCachePath...)
+    kd.reverseRecordMap[service.Spec.ClusterIP] = reverseRecord
+    kd.clusterIPServiceMap[service.Spec.ClusterIP] = service
+&#125;
+</code></pre>
+<p>再看一下当 Endpoint 添加到集群时，kubedns 会如何处理</p>
+<pre><code class="go">// dns/pkg/dns/dns.go#460
+func (kd *KubeDNS) addDNSUsingEndpoints(e *v1.Endpoints) error &#123;
+    // 获取ep所属的svc
+    svc, err := kd.getServiceFromEndpoints(e)
+    if err != nil &#123;
+      return err
+    &#125;
+    // 判断这个svc，如果这个svc不是 headless，就不会处理此次添加，因为 svc 有 clusterIP 的情况，在处理
+    // svc 的增删改时已经都被处理了。所以当 ep 属于 headless svc 时，需要将这个 ep 加入到 cache
+    if svc == nil || v1.IsServiceIPSet(svc) || svc.Spec.Type == v1.ServiceTypeExternalName &#123;
+      // No headless service found corresponding to endpoints object.
+      return nil
+    &#125;
+    return kd.generateRecordsForHeadlessService(e, svc)
+&#125;
+
+// 把 endpoint 添加到它所属的 headless service 的缓存下
+func (kd *KubeDNS) generateRecordsForHeadlessService(e *v1.Endpoints, svc *v1.Service) error &#123;
+    subCache := treecache.NewTreeCache()
+    generatedRecords := map[string]*skymsg.Service&#123;&#125;
+    // 遍历这个 ep 下所有的 ip+port，并将它们添加到 treecache 中
+    for idx := range e.Subsets &#123;
+      for subIdx := range e.Subsets[idx].Addresses &#123;
+        address := &amp;e.Subsets[idx].Addresses[subIdx]
+        endpointIP := address.IP
+        recordValue, endpointName := util.GetSkyMsg(endpointIP, 0)
+        if hostLabel, exists := getHostname(address); exists &#123;
+          endpointName = hostLabel
+        &#125;
+        subCache.SetEntry(endpointName, recordValue, kd.fqdn(svc, endpointName))
+        for portIdx := range e.Subsets[idx].Ports &#123;
+          endpointPort := &amp;e.Subsets[idx].Ports[portIdx]
+          if endpointPort.Name != &quot;&quot; &amp;&amp; endpointPort.Protocol != &quot;&quot; &#123;
+            srvValue := kd.generateSRVRecordValue(svc, int(endpointPort.Port), endpointName)
+            l := []string&#123;&quot;_&quot; + strings.ToLower(string(endpointPort.Protocol)), &quot;_&quot; + endpointPort.Name&#125;
+            subCache.SetEntry(endpointName, srvValue, kd.fqdn(svc, append(l, endpointName)...), l...)
+          &#125;
+        &#125;
+
+        // Generate PTR records only for Named Headless service.
+        if _, has := getHostname(address); has &#123;
+          reverseRecord, _ := util.GetSkyMsg(kd.fqdn(svc, endpointName), 0)
+          generatedRecords[endpointIP] = reverseRecord
+        &#125;
+      &#125;
+    &#125;
+    subCachePath := append(kd.domainPath, serviceSubdomain, svc.Namespace)
+    kd.cacheLock.Lock()
+    defer kd.cacheLock.Unlock()
+    for endpointIP, reverseRecord := range generatedRecords &#123;
+      kd.reverseRecordMap[endpointIP] = reverseRecord
+    &#125;
+    kd.cache.SetSubCache(svc.Name, subCache, subCachePath...)
+    return nil
+&#125;
+</code></pre>
+<p>整体流程其实和 Service 差不多，只不过在添加 cache 之前会先去查找Endpoint所属的 Service，然后不同的是 Endpoint 的叶子节点中的host存储的是 EndpointIP，而 Service 的叶子节点的 host 中存储的是 fqdn。</p>
+<h3 id="kubedns总结"><a href="#kubedns总结" class="headerlink" title="kubedns总结"></a>kubedns总结</h3><ol>
+<li><p>kubedns 有两个模块，kubedns和skydns，kubedns负责监听<code>Service</code>和<code>Endpoint</code>并将它们转换为 skydns 能够理解的格式，以目录树的形式存在内存中。</p>
+</li>
+<li><p>因为 skydns 是以 etcd 的标准作为后端存储的，所以为了兼容 etcd ，kubedns 在错误信息方面都以 etcd 的格式进行定义的。因此 kubedns 的作用其实可以理解为为 skydns 提供存储。</p>
+</li>
+</ol>
+<h3 id="dnsmasq"><a href="#dnsmasq" class="headerlink" title="dnsmasq"></a>dnsmasq</h3><p>dnsmasq 由两个部分组成</p>
+<p>1.dnsmasq-nanny，容器里的1号进程，不负责处理 DNS LookUp 请求，只负责管理 dnsmasq。<br>2.dnsmasq，负责处理 DNS LookUp 请求，并缓存结果。</p>
+<p>dnsmasq-nanny 负责监控 config 文件（&#x2F;etc&#x2F;k8s&#x2F;dns&#x2F;dnsmasq-nanny，也就是kube-dns-config这个 configmap 所挂载的位置）的变化（每 10s 查看一次），如果 config 变化了就会<strong>Kill</strong>掉 dnsmasq，并重新启动它。</p>
+<pre><code class="go">// dns/pkg/dnsmasq/nanny.go#198
+// RunNanny 启动 nanny 服务并处理配置变化
+func RunNanny(sync config.Sync, opts RunNannyOpts, kubednsServer string) &#123;
+    //  ...
+    configChan := sync.Periodic()
+    for &#123;
+      select &#123;
+      // ...
+      // 观察到config变化
+      case currentConfig = &lt;-configChan:
+        if opts.RestartOnChange &#123;
+          // 直接杀掉dnsmasq进程
+          nanny.Kill()
+          nanny = &amp;Nanny&#123;Exec: opts.DnsmasqExec&#125;
+          // 重新加载配置
+          nanny.Configure(opts.DnsmasqArgs, currentConfig, kubednsServer)
+          // 重新启动dnsmasq进程
+          nanny.Start()
+        &#125; else &#123;
+          glog.V(2).Infof(&quot;Not restarting dnsmasq (--restartDnsmasq=false)&quot;)
+        &#125;
+        break
+      &#125;
+    &#125;
+&#125;
+</code></pre>
+<p>让我们看下 sync.Periodic() 这个函数做了些什么</p>
+<pre><code class="go">// dns/pkg/dns/config/sync.go#81
+func (sync *kubeSync) Periodic() &lt;-chan *Config &#123;
+    go func() &#123;
+      // Periodic函数中设置了一个Tick，每10s会去load一下configDir下
+      // 所有的文件，并对每个文件进行sha256的摘要计算
+      // 并将这个结果返回。
+      resultChan := sync.syncSource.Periodic()
+      for &#123;
+        syncResult := &lt;-resultChan
+        // processUpdate函数会比较新的文件的版本和旧的
+        // 文件的版本，如果不一致会返回changed。
+        // 值得注意的是有三个文件是需要单独处理的
+        // federations
+        // stubDomains
+        // upstreamNameservers
+        // 当这三个文件变化是会触发单独的函数（打印日志）
+        config, changed, err := sync.processUpdate(syncResult, false)
+        if err != nil &#123;
+          continue
+        &#125;
+        if !changed &#123;
+          continue
+        &#125;
+        sync.channel &lt;- config
+      &#125;
+    &#125;()
+    return sync.channel
+&#125;
+</code></pre>
+<p>dnsmasq 中是如何加载配置的呢？</p>
+<pre><code class="go">// dns/pkg/dnsmasq/nanny.go#58
+// Configure the nanny. This must be called before Start().
+// 这个函数会配置 dnsmasq，Nanny 每次 Kill 掉 dnsmasq 后，调用 Start() 之前都会调用这个函数
+// 重新加载配置。
+func (n *Nanny) Configure(args []string, config *config.Config, kubednsServer string) &#123;
+    // ...
+    for domain, serverList := range config.StubDomains &#123;
+      resolver := &amp;net.Resolver&#123;
+        PreferGo: true,
+        Dial: func(ctx context.Context, network, address string) (net.Conn, error) &#123;
+          d := net.Dialer&#123;&#125;
+          return d.DialContext(ctx, &quot;udp&quot;, kubednsServer)
+        &#125;,
+      &#125;
+      // 因为 stubDomain 中可以是以 host:port 的形式存在，所以这里还要做一次 上游的 dns 解析
+      for _, server := range serverList &#123;
+        if isIP := (net.ParseIP(server) != nil); !isIP &#123;
+          switch &#123;
+          // 如果 server 是以 cluster.local（不知道为什么这里是 hardCode 的）结尾的，就会发往 kubednsServer 进行 DNS 解析
+          // 因为上面已经配置了 d.DialContext(ctx, &quot;udp&quot;, kubednsServer)
+          case strings.HasSuffix(server, &quot;cluster.local&quot;):
+            // ...
+            resolver.LookupIPAddr(context.Background(), server)
+          default:
+          // 如果没有以 cluster.local 结尾，就会走外部解析 DNS
+            // ...
+            net.LookupIP(server)
+          &#125;
+        &#125;
+      &#125;
+    &#125;
+    // ...
+&#125;
+</code></pre>
+<h3 id="sidecar"><a href="#sidecar" class="headerlink" title="sidecar"></a>sidecar</h3><p>sidecar 启动后会在内部开启一个协程，并在循环中每默认 5s 向 kubedns 发送一次 dns 解析。并记录解析结果。</p>
+<p>sidecar 提供了两个http的接口 <code>/healthcheck/kubedns</code> 和 <code>/healthcheck/dnsmasq</code> 给 k8s 用作 <code>livenessProbe</code> 的健康检查。每次请求，sidecar 会将上述记录的 DNS 解析结果返回。</p>
+<h3 id="kubedns的优缺点"><a href="#kubedns的优缺点" class="headerlink" title="kubedns的优缺点"></a>kubedns的优缺点</h3><h4 id="优点"><a href="#优点" class="headerlink" title="优点"></a>优点</h4><ol>
+<li>各个模块都做了很好的解耦，方便开发者上手。</li>
+<li>依赖 dnsmasq ，性能有保障</li>
+</ol>
+<h4 id="缺点"><a href="#缺点" class="headerlink" title="缺点"></a>缺点</h4><ol>
+<li><p>因为 dnsmasq-nanny 重启 dnsmasq 的方式，先杀后起，方式比较粗暴，有可能导致这段时间内大量的 DNS 请求失败。</p>
+</li>
+<li><p>dnsmasq-nanny 检测文件的方式，可能会导致以下问题：</p>
+<ol>
+<li><p>dnsmasq-nanny 每次遍历目录下的所有文件，然后用 ioutil.ReadFile 读取文件内容。如果目录下文件数量过多，可能出现在遍历的同时文件也在被修改，遍历的速度跟不上修改的速度。<br> 这样可能导致遍历完了，某个配置文件才更新完。那么此时，你读取的一部分文件数据并不是和当前目录下文件数据完全一致，本次会重启 dnsmasq。进而，下次检测，还认为有文件变化，到时候，又重启一次 dnsmasq。这种方式不优雅，但问题不大。</p>
+</li>
+<li><p>文件的检测，直接使用 ioutil.ReadFile 读取文件内容，也存在问题。如果文件变化，和文件读取同时发生，很可能你读取完，文件的更新都没完成，那么你读取的并非一个完整的文件，而是坏的文件，这种文件，dnsmasq-nanny 无法做解析，不过官方代码中有数据校验，解析失败也问题不大，大不了下个周期的时候，再取到完整数据，再解析一次。</p>
+</li>
+</ol>
+</li>
+</ol>
+<h2 id="CoreDNS"><a href="#CoreDNS" class="headerlink" title="CoreDNS"></a><a target="_blank" rel="noopener" href="https://github.com/coredns/coredns">CoreDNS</a></h2><p>CoreDNS 是一个高速并且十分<strong>灵活</strong>的DNS服务。CoreDNS 允许你通过编写插件的形式去自行处理DNS数据。</p>
+<h3 id="结构图"><a href="#结构图" class="headerlink" title="结构图"></a>结构图</h3><p>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="/images/kubeDNS%E5%92%8CcoreDNS/core_dns_structure.png" >
+        </sapn>
+      </p>
+<p>CoreDNS 使用<a target="_blank" rel="noopener" href="https://github.com/caddyserver/caddy">Caddy</a>作为底层的 Web Server，Caddy 是一个轻量、易用的Web Server，它支持 HTTP、HTTPS、HTTP&#x2F;2、GRPC 等多种连接方式。所有 coreDNS 可以通过四种方式对外直接提供 DNS 服务，分别是 UDP、gRPC、HTTPS 和 TLS</p>
+<p>CoreDNS 的大多数功能都是由插件来实现的，插件和服务本身都使用了 Caddy 提供的一些功能，所以项目本身也不是特别的复杂。</p>
+<h3 id="插件"><a href="#插件" class="headerlink" title="插件"></a>插件</h3><p>CoreDNS 定义了一套插件的接口，只要实现 Handler 接口就能将插件注册到<strong>插件链</strong>中。</p>
+<pre><code class="go">type (
+    // 只需要为插件实现 ServeDNS 以及 Name 这两个接口并且写一些用于配置的代码就可以将插件集成到 CoreDNS 中
+    Handler interface &#123;
+        ServeDNS(context.Context, dns.ResponseWriter, *dns.Msg) (int, error)
+        Name() string
+    &#125;
+)
+</code></pre>
+<p>现在在 CoreDNS 中已经支持40种左右的插件。</p>
+<h4 id="kubernetes"><a href="#kubernetes" class="headerlink" title="kubernetes"></a>kubernetes</h4><p>该插件可以让 coreDNS 读取到k8s集群内的 endpoint 以及 service 等信息，从而替代 kubeDNS 作为 k8s 集群内的 DNS 解析服务。不仅如此，该插件还支持多种配置如：</p>
+<pre><code class="conf">kubernetes [ZONES...] &#123;
+    ; 使用该配置可以连接到远程的k8s集群
+    kubeconfig KUBECONFIG CONTEXT
+    endpoint URL  
+    tls CERT KEY CACERT
+    ; 可以设置需要暴露Service的namespace列表
+    namespaces NAMESPACE...
+    ; 可以暴露带有特定label的namespace
+    labels EXPRESSION
+    ; 是否可以解析10-0-0-1.ns.pod.cluster.local这种domain（为了兼容kube-dns）
+    pods POD-MODE
+    endpoint_pod_names
+    ttl TTL
+    noendpoints
+    transfer to ADDRESS...
+    fallthrough [ZONES...]
+    ignore empty_service
+&#125;
+</code></pre>
+<h4 id="forward"><a href="#forward" class="headerlink" title="forward"></a>forward</h4><p>提供上游解析功能</p>
+<pre><code class="conf">forward FROM TO... &#123;
+    except IGNORED_NAMES...
+    ; 强制使用tcp进行域名解析
+    force_tcp
+    ; 当请求是tcp时，先尝试一次udp解析，失败了再使用tcp
+    prefer_udp
+    expire DURATION
+    ; upstream的healthcheck失败的最多次数，默认2，超过的话upstream就会被下掉
+    max_fails INTEGER
+    tls CERT KEY CA
+    tls_servername NAME
+    ; 选择nameserver的策略，random、round_robin、sequential
+    policy random|round_robin|sequential
+    health_check DURATION
+&#125;
+</code></pre>
+<p>更多的插件可以到 CoreDNS 的<a target="_blank" rel="noopener" href="https://coredns.io/plugins/">插件市场</a>查看</p>
+<h3 id="Corefile"><a href="#Corefile" class="headerlink" title="Corefile"></a>Corefile</h3><p>CoreDNS 提供了一种简单易懂的 DSL 语言，它允许你通过 Corefile 来自定义 DNS 服务。</p>
+<pre><code class="conf">coredns.io:5300 &#123;
+    file db.coredns.io
+&#125;
+
+example.io:53 &#123;
+    log
+    errors
+    file db.example.io
+&#125;
+
+example.net:53 &#123;
+    file db.example.net
+&#125;
+
+.:53 &#123;
+    kubernetes
+    proxy . 8.8.8.8
+    log
+    errors
+    cache
+&#125;
+</code></pre>
+<p>通过以上的配置，CoreDNS 会开启两个端口 5300 和 53 ，提供 DNS 解析服务。对于 coredns.io 相关的域名会通过 5300 端口进行解析，其他域名会被解析到 53 端口，不同的域名会应用不同的插件。</p>
+<p>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="/images/kubeDNS%E5%92%8CcoreDNS/core_dns_plugin_example.png" >
+        </sapn>
+      </p>
+<h3 id="插件原理"><a href="#插件原理" class="headerlink" title="插件原理"></a>插件原理</h3><p>在 CoreDNS 中 <code>Plugin</code> 其实就是一个出入参数都是 <code>Handler</code> 的函数</p>
+<pre><code class="go">// 所谓的插件链其实是一个Middle layer，通过传递链中的下一个Handler，将一个Handler链接到下一个Handler。
+type  Plugin func(Handler) Handler
+</code></pre>
+<p>同时 CoreDNS 提供了 <code>NextOrFailure</code> 方法，供每个插件在执行完自身的逻辑之后执行下一个插件</p>
+<pre><code class="go">// NextOrFailure calls next.ServeDNS when next is not nil, otherwise it will return, a ServerFailure and a nil error.
+func NextOrFailure(name string, next Handler, ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) &#123; // nolint: golint
+    if next != nil &#123;
+      if span := ot.SpanFromContext(ctx); span != nil &#123;
+        child := span.Tracer().StartSpan(next.Name(), ot.ChildOf(span.Context()))
+        defer child.Finish()
+        ctx = ot.ContextWithSpan(ctx, child)
+      &#125;
+      return next.ServeDNS(ctx, w, r)
+    &#125;
+
+    return dns.RcodeServerFailure, Error(name, errors.New(&quot;no next plugin found&quot;))
+&#125;
+</code></pre>
+<p>如果 next 为 nil，说明插件链已经调用结束，直接返回 <code>no next plugin found</code> 的 error 即可。</p>
+<p>每个 <code>Plugin</code> 也可以调用 <code>(dns.ResponseWriter).WriteMsg(*dns.Msg)</code> 方法来结束整个调用链。</p>
+<h3 id="kubernetes-插件做了什么"><a href="#kubernetes-插件做了什么" class="headerlink" title="kubernetes 插件做了什么"></a>kubernetes 插件做了什么</h3><p>CoreDNS 正是通过 kubernetes 插件实现了解析 k8s 集群内域名的功能。那么我们看下这个插件做了些什么事情。</p>
+<pre><code class="go">// coredns/plugin/kubernetes/setup.go#44
+func setup(c *caddy.Controller) error &#123;
+    // 检查了 corefile 中 kubernetes 配置的定义，并配置了一些缺省值
+    k, err := kubernetesParse(c)
+    if err != nil &#123;
+      return plugin.Error(&quot;kubernetes&quot;, err)
+    &#125;
+    // 启动了对 pod, service, endpoint 三种资源增、删、改的 watch，并注册了一些回调
+    // 注意：pod 是否启动 watch 是根据配置文件中 pod 的值来决定的，如果值不是 verified 就不会启动 pod 的 watch
+    // 这里的 watch 方法观测到变化后，仅仅只改变 dns.modified 这个值，它会将该值设置为当前时间戳
+    err = k.InitKubeCache()
+    if err != nil &#123;
+      return plugin.Error(&quot;kubernetes&quot;, err)
+    &#125;
+
+    // 将插件注册到 Caddy，让 Caddy 启动时能够同时启动该插件
+    k.RegisterKubeCache(c)
+
+    // 注册插件到调用链
+    dnsserver.GetConfig(c).AddPlugin(func(next plugin.Handler) plugin.Handler &#123;
+      k.Next = next
+      return k
+    &#125;)
+
+    return nil
+&#125;
+</code></pre>
+<pre><code class="go">// coredns/plugin/kubernetes/controller.go#408
+// 这三个方法就是 watch 资源时的回调
+func (dns *dnsControl) Add(obj interface&#123;&#125;)               &#123; dns.detectChanges(nil, obj) &#125;
+func (dns *dnsControl) Delete(obj interface&#123;&#125;)            &#123; dns.detectChanges(obj, nil) &#125;
+func (dns *dnsControl) Update(oldObj, newObj interface&#123;&#125;) &#123; dns.detectChanges(oldObj, newObj) &#125;
+
+// detectChanges detects changes in objects, and updates the modified timestamp
+func (dns *dnsControl) detectChanges(oldObj, newObj interface&#123;&#125;) &#123;
+    // 判断新老对象的版本
+    if newObj != nil &amp;&amp; oldObj != nil &amp;&amp; (oldObj.(meta.Object).GetResourceVersion() == newObj.(meta.Object).GetResourceVersion()) &#123;
+      return
+    &#125;
+    obj := newObj
+    if obj == nil &#123;
+      obj = oldObj
+    &#125;
+    switch ob := obj.(type) &#123;
+    case *object.Service:
+      dns.updateModifed()
+    case *object.Endpoints:
+      if newObj == nil || oldObj == nil &#123;
+        dns.updateModifed()
+        return
+      &#125;
+      p := oldObj.(*object.Endpoints)
+      // endpoint updates can come frequently, make sure it&#39;s a change we care about
+      if endpointsEquivalent(p, ob) &#123;
+        return
+      &#125;
+      dns.updateModifed()
+    case *object.Pod:
+      dns.updateModifed()
+    default:
+      log.Warningf(&quot;Updates for %T not supported.&quot;, ob)
+    &#125;
+&#125;
+
+func (dns *dnsControl) Modified() int64 &#123;
+    unix := atomic.LoadInt64(&amp;dns.modified)
+    return unix
+&#125;
+
+// updateModified set dns.modified to the current time.
+func (dns *dnsControl) updateModifed() &#123;
+    unix := time.Now().Unix()
+    atomic.StoreInt64(&amp;dns.modified, unix)
+&#125;
+</code></pre>
+<p>上面展示的就是 kubernetes 这个 Plugin Watch 各个资源变化后的回调。可以看到它仅仅只改变 dns.modified 一个值，那么当 Service 发生变化后，kubernetes 插件如何感知，并将它们更新到内存呢。其实并没有或者说并不需要。。。因为这里使用了 <code>client-go</code> 中的 <code>informer</code> 机制，kubernetes 在解析 Service DNS 时会根据直接列出所有 Service（这里其实这么说并不准确，如果查找的是泛域名，那么才会列出所有 Service，如果是正常的 servicename.namespace，那么插件会使用 <code>client-go</code> 的 <code>Indexer</code> 机制，根据索引查找符合的 ServiceList），再进行匹配，直到找到匹配的 Service 再根据它的不同类型，决定返回结果。如果是 ClusterIP 类型，则返回 svc 的 ClusterIP，如果是 Headless 类型，则返回它所有的 Endpoint 的IP，如果是 ExternalName 类型，且 external_name 的值为 CNAME 类型，则返回 external_name 的值。整个操作仍然是在内存中进行的，效率并不会很低。</p>
+<pre><code class="go">// findServices returns the services matching r from the cache.
+func (k *Kubernetes) findServices(r recordRequest, zone string) (services []msg.Service, err error) &#123;
+    // 如果 namespace 为 * 或者 为 any，或者该 namespace 在配置文件中没有被 namespace: 这个配置项中配置
+    // 则返回 NXDOMAIN
+    if !wildcard(r.namespace) &amp;&amp; !k.namespaceExposed(r.namespace) &#123;
+      return nil, errNoItems
+    &#125;
+
+    // 如果 lookup 的 service 为空
+    if r.service == &quot;&quot; &#123;
+      //  如果 namepace 存在 或者 namespace 是通配符就返回空的 Service 列表
+      if k.namespaceExposed(r.namespace) || wildcard(r.namespace) &#123;
+        // NODATA
+        return nil, nil
+      &#125;
+      // 否则返回 NXDOMAIN
+      return nil, errNoItems
+    &#125;
+
+    err = errNoItems
+    if wildcard(r.service) &amp;&amp; !wildcard(r.namespace) &#123;
+      // If namespace exists, err should be nil, so that we return NODATA instead of NXDOMAIN
+      if k.namespaceExposed(r.namespace) &#123;
+        err = nil
+      &#125;
+    &#125;
+
+    var (
+      endpointsListFunc func() []*object.Endpoints
+      endpointsList     []*object.Endpoints
+      serviceList       []*object.Service
+    )
+
+    if wildcard(r.service) || wildcard(r.namespace) &#123;
+      // 如果 service 或者 namespace 为 * 或者 any，列出当前所有的 Service
+      serviceList = k.APIConn.ServiceList()
+      endpointsListFunc = func() []*object.Endpoints &#123; return k.APIConn.EndpointsList() &#125;
+    &#125; else &#123;
+      // 根据 service.namespace 获取 index
+      idx := object.ServiceKey(r.service, r.namespace)
+      // 通过 client-go 的 indexer 返回 serviceList
+      serviceList = k.APIConn.SvcIndex(idx)
+      endpointsListFunc = func() []*object.Endpoints &#123; return k.APIConn.EpIndex(idx) &#125;
+    &#125;
+
+    // 将 zone 转化为 etcd key 的格式
+    // /c/local/cluster
+    zonePath := msg.Path(zone, coredns)
+    for _, svc := range serviceList &#123;
+      if !(match(r.namespace, svc.Namespace) &amp;&amp; match(r.service, svc.Name)) &#123;
+        continue
+      &#125;
+
+      // If request namespace is a wildcard, filter results against Corefile namespace list.
+      // (Namespaces without a wildcard were filtered before the call to this function.)
+      if wildcard(r.namespace) &amp;&amp; !k.namespaceExposed(svc.Namespace) &#123;
+        continue
+      &#125;
+
+      // 如果查找的 Service 没有 Endpoint，就返回 NXDOMAIN，除非这个 Service 是 Headless Service 或者 External name
+      if k.opts.ignoreEmptyService &amp;&amp; svc.ClusterIP != api.ClusterIPNone &amp;&amp; svc.Type != api.ServiceTypeExternalName &#123;
+        // serve NXDOMAIN if no endpoint is able to answer
+        podsCount := 0
+        for _, ep := range endpointsListFunc() &#123;
+          for _, eps := range ep.Subsets &#123;
+            podsCount = podsCount + len(eps.Addresses)
+          &#125;
+        &#125;
+
+        // No Endpoints
+        if podsCount == 0 &#123;
+          continue
+        &#125;
+      &#125;
+
+      // lookup 的 Service 是 headless Service 或者是使用 Endpoint lookup
+      if svc.ClusterIP == api.ClusterIPNone || r.endpoint != &quot;&quot; &#123;
+        if endpointsList == nil &#123;
+          endpointsList = endpointsListFunc()
+        &#125;
+        for _, ep := range endpointsList &#123;
+          if ep.Name != svc.Name || ep.Namespace != svc.Namespace &#123;
+            continue
+          &#125;
+
+          for _, eps := range ep.Subsets &#123;
+            for _, addr := range eps.Addresses &#123;
+
+              // See comments in parse.go parseRequest about the endpoint handling.
+              if r.endpoint != &quot;&quot; &#123;
+                if !match(r.endpoint, endpointHostname(addr, k.endpointNameMode)) &#123;
+                  continue
+                &#125;
+              &#125;
+
+              for _, p := range eps.Ports &#123;
+                if !(match(r.port, p.Name) &amp;&amp; match(r.protocol, string(p.Protocol))) &#123;
+                  continue
+                &#125;
+                s := msg.Service&#123;Host: addr.IP, Port: int(p.Port), TTL: k.ttl&#125;
+                s.Key = strings.Join([]string&#123;zonePath, Svc, svc.Namespace, svc.Name, endpointHostname(addr, k.endpointNameMode)&#125;, &quot;/&quot;)
+
+                err = nil
+                // 遍历 Endpoints 并将结果添加到返回列表
+                services = append(services, s)
+              &#125;
+            &#125;
+          &#125;
+        &#125;
+        continue
+      &#125;
+
+      // External service
+      // 如果 svc 是 External Service
+      if svc.Type == api.ServiceTypeExternalName &#123;
+        s := msg.Service&#123;Key: strings.Join([]string&#123;zonePath, Svc, svc.Namespace, svc.Name&#125;, &quot;/&quot;), Host: svc.ExternalName, TTL: k.ttl&#125;
+        // 只有当 External Name 是 CNAME 时，才会添加该 Service 到结果
+        if t, _ := s.HostType(); t == dns.TypeCNAME &#123;
+          s.Key = strings.Join([]string&#123;zonePath, Svc, svc.Namespace, svc.Name&#125;, &quot;/&quot;)
+          services = append(services, s)
+
+          err = nil
+        &#125;
+        continue
+      &#125;
+
+      // ClusterIP service
+      // 正常情况，返回的 msg.Service 的 Host 为 ClusterIP
+      for _, p := range svc.Ports &#123;
+        if !(match(r.port, p.Name) &amp;&amp; match(r.protocol, string(p.Protocol))) &#123;
+          continue
+        &#125;
+
+        err = nil
+
+        s := msg.Service&#123;Host: svc.ClusterIP, Port: int(p.Port), TTL: k.ttl&#125;
+        s.Key = strings.Join([]string&#123;zonePath, Svc, svc.Namespace, svc.Name&#125;, &quot;/&quot;)
+
+        services = append(services, s)
+      &#125;
+    &#125;
+    return services, err
+&#125;
+</code></pre>
+<h3 id="coredns的优缺点"><a href="#coredns的优缺点" class="headerlink" title="coredns的优缺点"></a>coredns的优缺点</h3><h4 id="优点-1"><a href="#优点-1" class="headerlink" title="优点"></a>优点</h4><ol>
+<li>非常灵活的配置，可以根据不同的需求给不同的域名配置不同的插件</li>
+<li>k8s 1.9 版本后的默认的 dns 解析</li>
+</ol>
+<h4 id="缺点-1"><a href="#缺点-1" class="headerlink" title="缺点"></a>缺点</h4><ol>
+<li>缓存的效率不如 dnsmasq，对集群内部域名解析的速度不如 kube-dns （10% 左右）</li>
+</ol>
+<h3 id="性能对比"><a href="#性能对比" class="headerlink" title="性能对比"></a>性能对比</h3><p>在 CoreDNS 的官网中已有详细的性能测试报告，<a target="_blank" rel="noopener" href="https://coredns.io/2018/11/27/cluster-dns-coredns-vs-kube-dns/">地址</a></p>
+<ul>
+<li>对于内部域名解析 KubeDNS 要优于 CoreDNS 大约 10%，可能是因为 dnsmasq 对于缓存的优化会比 CoreDNS 要好</li>
+<li>对于外部域名 CoreDNS 要比 KubeDNS 好 3 倍。但这个值大家看看就好，因为 kube-dns 不会缓存 Negative cache。但即使 kubeDNS 使用了 Negative cache，表现仍然也差不多</li>
+<li>CoreDNS 的内存占用情况会优于 KubeDNS</li>
+</ul>
+
+        <!-- 分类文章 -->
+        
+      </div>
+      <div class="post-content-inner-space">
+        
+          <div class="space-toc-main animate__animated  animate__fadeInUp">
+            <ol class="space-toc"><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#DNS-In-Kubernetes"><span class="space-toc-text">DNS In Kubernetes</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#kubeDNS"><span class="space-toc-text">kubeDNS</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#CoreDNS"><span class="space-toc-text">CoreDNS</span></a></li></ol>
+           </div>
+        
+      </div>
+   </div>
+    <!-- 评论 -->
+    
+  </div>
+</article>
+  </div>
+</div>
+
+
+
+<!-- 如果是home模式的话，不在首页就显示footer，如果不是home模式的话 所有都显示footer -->
+
+  <div class="footer-outer animate__animated  animate__fadeInUp">
+    <div class="footer-inner">
+    <div class="footer-text">
+    <p>Power by <a target="_blank" rel="noopener" href="http://hexo.io/">Hexo</a> Theme by <a target="_blank" rel="noopener" href="https://github.com/FuShaoLei/hexo-theme-white">White</a></p>
+
+    </div>
+    <div class="footer-contact">
+    <ul class="footer-ul">
+        
+        <li class="footer-li">
+            <a href="https://github.com/domechn" target="_blank">
+                <i class="ri-github-line"></i>
+            </a>
+        </li>
+        
+        <li class="footer-li">
+            <a href="mailto:domdoumc@gmail.com" target="_blank">
+                <i class="ri-mail-line"></i>
+            </a>
+        </li>
+        
+    </ul>
+    </div>
+    </div>
+</div>
+
+
+
+
+
+
+<script src="/js/white.js"></script>
+
+
+
+    
+      
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.1/build/highlight.min.js"></script>
+
+      <script>hljs.initHighlightingOnLoad();</script>
+    
+
+</body>
+</html>

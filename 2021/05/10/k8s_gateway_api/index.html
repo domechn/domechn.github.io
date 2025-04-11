@@ -1,0 +1,392 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>  Kubernetes Gateway API |    Domechn.</title>
+  <meta name="description" content="A minimalist theme for hexo.">
+  <!-- 标签页图标 -->
+  
+  <link rel="shortcut icon" href="/favicon.png" type="image/x-icon">
+  
+
+  <!-- 图标库 -->
+  <link href="https://cdn.jsdelivr.net/npm/remixicon@2.2.0/fonts/remixicon.css" rel="stylesheet">
+  <!-- 动画库 -->
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fushaolei/cdn-white@1.0/css/animate.css"/>
+  
+  <!-- css文件 -->
+  
+<link rel="stylesheet" href="/css/white.css">
+
+  <!-- 代码高亮 -->
+  
+    
+      
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@10.1.1/styles/github.css">
+
+    
+  
+<meta name="generator" content="Hexo 6.3.0"><link rel="alternate" href="/atom.xml" title="Not Bad" type="application/atom+xml">
+</head>
+
+
+<body>
+
+<div class="menu-outer">
+    <div class="menu-inner">
+      <div class="menu-site-name  animate__animated  animate__fadeInUp">
+        <a href="/">
+          Domechn.
+        </a>
+        
+      </div>
+      <div class="menu-group">
+        <ul class="menu-ul">
+        
+          <a href="/" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              HOME
+            </li>
+          </a>
+        
+          <a href="/archives" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              BLOG
+            </li>
+          </a>
+        
+          <a href="/mypages/footprints" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              FOOTPRINTS
+            </li>
+          </a>
+        
+          <a href="/atom.xml" class="nav-link">
+            <li class="menu-li  animate__animated  animate__fadeInUp">
+              RSS
+            </li>
+          </a>
+        
+        
+        
+        <a href="/search">
+          <li class="menu-li  animate__animated  animate__fadeInUp">
+            <i class="ri-search-line"></i>
+          </li>
+        </a>
+        
+          <li class="menu-li animate__animated  animate__fadeInUp" id="mobile-menu">
+            <i class="ri-menu-line"></i>
+          </li>
+        
+        </ul>
+
+      </div>
+
+    </div>
+</div>
+<div id="mobile-main" class="animate__animated  animate__fadeIn">
+  <div class="mobile-menu-inner">
+    <div class="mobile-menu-site-name animate__animated  animate__fadeInUp">
+      <a href="/">
+        Domechn.
+      </a>
+    </div>
+    <div class="mobile-menu-group" id="mobile-close">
+      <i class="ri-close-line"></i>
+    </div>
+
+  </div>
+
+  <div class="mobile-menu-div">
+  
+    <a href="/" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>HOME</span>
+      </div>
+    </a>
+  
+    <a href="/archives" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>BLOG</span>
+      </div>
+    </a>
+  
+    <a href="/mypages/footprints" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>FOOTPRINTS</span>
+      </div>
+    </a>
+  
+    <a href="/atom.xml" class="mobile-nav-link">
+      <div class="mobile-menu-child animate__animated  animate__fadeInUp">
+        <span>RSS</span>
+      </div>
+    </a>
+  
+  
+    <a href="/search">  
+      <div class="mobile-menu-child  animate__animated  animate__fadeInUp">
+        <i class="ri-search-line"></i>
+      </div>
+    </a>
+    
+  </div>
+
+
+</div>
+
+<div class="body-outer">
+  <div class="body-inner">
+    
+<article class="post-inner">
+  <div class="post-content-outer">
+    <div class="post-intro">
+      <div class="post-title animate__animated  animate__fadeInUp">Kubernetes Gateway API</div>
+      <div class="meta-intro animate__animated  animate__fadeInUp">May 10 2021</div>
+      
+    </div>
+    <div class="post-content-inner">
+      <div class="post-content-inner-space">
+
+      </div>
+      <div class="post-content-main animate__animated  animate__fadeInUp">
+        <!-- top型目录 -->
+        
+        <h2 id="什么是-Kubernetes-Gateway-API"><a href="#什么是-Kubernetes-Gateway-API" class="headerlink" title="什么是 Kubernetes Gateway API"></a>什么是 Kubernetes Gateway API</h2><p>Kubernetes Gateway API（以下简称 <code>KGA</code>）是由 sig-network 小组提出的，用于帮助用户在 K8S 中对服务网络进行建模的资源的集合。</p>
+<p>它通过提供标准化的接口，允许各个供应商提供自己的实现方式，来帮助用户规划集群内的服务网络。</p>
+<h2 id="演进历史"><a href="#演进历史" class="headerlink" title="演进历史"></a>演进历史</h2><p>最初 K8S 提供了 <code>Ingress</code> API 来让用户可以定义集群的入口网络。随着流量管理（熔断，限流，灰度）等需求的增加，最初的 <code>Ingress</code> 的定义已经无法满足，因此社区开始分裂出了不同的实现方式。</p>
+<ul>
+<li>利用 <code>CRD</code> 扩展 <code>Ingress</code>，例如：<a target="_blank" rel="noopener" href="https://dave.cheney.net/paste/ingress-is-dead-long-live-ingressroute.pdf">https://dave.cheney.net/paste/ingress-is-dead-long-live-ingressroute.pdf</a></li>
+<li>利用 <code>Annotation</code> 扩展 <code>Ingress</code>，例如：<a target="_blank" rel="noopener" href="https://kubernetes.github.io/ingress-nginx/user-guide/nginx-configuration/annotations/">nginx-controller</a></li>
+</ul>
+<p>这些方式虽然能解决现有的问题，但也导致了</p>
+<ul>
+<li>没有统一的标准，各个 ingress-controller 按自己的方式实现</li>
+<li>没有可移植性</li>
+</ul>
+<p>因此 KGA 应运而生，KGA 需要能让用户很方便的使用以下功能</p>
+<h3 id="流量管理"><a href="#流量管理" class="headerlink" title="流量管理"></a>流量管理</h3><ul>
+<li>HTTP 流量能够按 <code>Header</code>, <code>URI</code> 路由</li>
+<li>流量按权重路由</li>
+<li>流量镜像</li>
+<li>TCP 和 UDP 等路由</li>
+</ul>
+<h3 id="面向角色的设计"><a href="#面向角色的设计" class="headerlink" title="面向角色的设计"></a>面向角色的设计</h3><ul>
+<li>将 Routing 和 Service 的角色分离</li>
+</ul>
+<h3 id="扩展性"><a href="#扩展性" class="headerlink" title="扩展性"></a>扩展性</h3><ul>
+<li>支持层级配置，用户可以在上层配置中添加或覆盖下层配置中的属性</li>
+</ul>
+<h3 id="灵活一致性"><a href="#灵活一致性" class="headerlink" title="灵活一致性"></a>灵活一致性</h3><ul>
+<li>KGA 提供了三种级别的 API<ul>
+<li>core<ul>
+<li>必须实现</li>
+</ul>
+</li>
+<li>extended<ul>
+<li>可以不实现，如果实现必须保证移植性</li>
+</ul>
+</li>
+<li>custom<ul>
+<li>各个 controller 可以自定义，且不需要提供可移植保证</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<h2 id="KGA"><a href="#KGA" class="headerlink" title="KGA"></a>KGA</h2><p>为满足上述功能，KGA 提供了以下几种 API</p>
+<ul>
+<li><p><strong>GatewayClass</strong></p>
+<p>指定 KGA 的实现方式，（比如 <code>istio</code> or <code>nginx</code>），类似于 <code>StorageClassess</code></p>
+</li>
+<li><p><strong>Gateway</strong></p>
+<p>指定 Route 应该使用哪个 GatewayClass</p>
+</li>
+<li><p><strong>Route</strong></p>
+<p>定义路由的具体规则，有 <code>HTTPRoute</code>, <code>TCPRoute</code>, <code>UDPRoute</code></p>
+<p>指定符合规则的流量应该路由到哪个 <code>Service</code></p>
+</li>
+</ul>
+<p>关于各个 API 的具体字段，可以查看该<a target="_blank" rel="noopener" href="https://gateway-api.sigs.k8s.io/api-types/gatewayclass/">文档</a></p>
+<p>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="https://kubernetes.io/blog/2021/04/22/evolving-kubernetes-networking-with-the-gateway-api/gateway-api-resources.png" >
+        </sapn>
+      </p>
+<h2 id="示例"><a href="#示例" class="headerlink" title="示例"></a>示例</h2><p>有以下常用的情况</p>
+<p>foo 小组需要将多个服务部署在 <code>foo</code> namespace 中，并要求按照 http 请求能按照 uri 路由到不同的 Service</p>
+<pre><code class="yaml">kind: HTTPRoute
+apiVersion: networking.x-k8s.io/v1alpha1
+metadata:
+  name: foo-route
+  namespace: foo
+  labels:
+    gateway: external-https-prod
+spec:
+  hostnames:
+  - &quot;foo.example.com&quot;
+  rules:
+  - matches:
+    - path:
+        type: Prefix
+        value: /login
+    forwardTo:
+    - serviceName: foo-auth
+      port: 8080
+  - matches:
+    - path:
+        type: Prefix
+        value: /home
+    forwardTo:
+    - serviceName: foo-home
+      port: 8080
+  - matches:
+    - path:
+        type: Prefix
+        value: /
+    forwardTo:
+    - serviceName: foo-404
+      port: 8080
+</code></pre>
+<p>bar 小组将服务部署在 <code>bar</code> namespace 中，并需要 canary 发布他们的服务，将流量按照 9:1 的比例分别发送到, bar-v1 和 bar-v2，且当请求的 Header 中带有 <code>env: canary</code> 时，将流量发布到 bar-v2</p>
+<p>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="https://kubernetes.io/blog/2021/04/22/evolving-kubernetes-networking-with-the-gateway-api/httproute.png" >
+        </sapn>
+      </p>
+<pre><code class="yaml">kind: HTTPRoute
+apiVersion: networking.x-k8s.io/v1alpha1
+metadata:
+  name: bar-route
+  namespace: bar
+  labels:
+    gateway: external-https-prod
+spec:
+  hostnames:
+    - &quot;bar.example.com&quot;
+  rules:
+    - forwardTo:
+        - serviceName: bar-v1
+          port: 8080
+          weight: 90
+        - serviceName: bar-v2
+          port: 8080
+          weight: 10
+    - matches:
+        - headers:
+            values:
+              env: canary
+      forwardTo:
+        - serviceName: bar-v2
+          port: 8080
+</code></pre>
+<p>当两个团队创建好了 <code>HTTPRoute</code> 后，该如何将入口流量匹配到这些规则上呢？这里就需要用到 <code>Gateway</code> 了</p>
+<p>infra 团队可以创建如下 <code>Gateway</code> 来绑定 <code>Routes</code></p>
+<pre><code class="yaml">kind: Gateway
+apiVersion: networking.x-k8s.io/v1alpha1
+metadata:
+  name: prod-web
+spec:
+  gatewayClassName: acme-lb
+  listeners:
+    - protocol: HTTPS
+      port: 443
+      routes:
+        kind: HTTPRoute
+        selector:
+          matchLabels:
+            gateway: external-https-prod
+        namespaces:
+          from: All
+      tls:
+        certificateRef:
+          name: admin-controlled-cert
+</code></pre>
+<p>可以看到，<code>Gateway</code> 中使用 <code>selector.matchLabels</code> 来选中所有 namespace 下带有 <code>gateway: external-https-prod</code> Label 的 <code>HTTPRoute</code></p>
+<p>同时 <code>Gateway</code> 中指定了 <code>gatewayClassName</code> 为 <code>acme-lb</code>，所以这些 route 规则就会被同步到 acme-lb 上</p>
+<p>因此只要将 <code>foo.example.com</code> 和 <code>bar.example.com</code> 的 dns 解析到 acme-lb 的 externalIP 上，就可以完成流量的路由</p>
+<p>以下是这些 API 的拓补图<br>
+        <span class="lazyload-img-span">
+        <img   
+           data-src="https://gateway-api.sigs.k8s.io/images/schema-uml.svg" >
+        </sapn>
+      </p>
+<h2 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://kubernetes.io/blog/2021/04/22/evolving-kubernetes-networking-with-the-gateway-api/">https://kubernetes.io/blog/2021/04/22/evolving-kubernetes-networking-with-the-gateway-api/</a></li>
+<li><a target="_blank" rel="noopener" href="https://gateway-api.sigs.k8s.io/">https://gateway-api.sigs.k8s.io/</a></li>
+</ul>
+
+        <!-- 分类文章 -->
+        
+      </div>
+      <div class="post-content-inner-space">
+        
+          <div class="space-toc-main animate__animated  animate__fadeInUp">
+            <ol class="space-toc"><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#%E4%BB%80%E4%B9%88%E6%98%AF-Kubernetes-Gateway-API"><span class="space-toc-text">什么是 Kubernetes Gateway API</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#%E6%BC%94%E8%BF%9B%E5%8E%86%E5%8F%B2"><span class="space-toc-text">演进历史</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#KGA"><span class="space-toc-text">KGA</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#%E7%A4%BA%E4%BE%8B"><span class="space-toc-text">示例</span></a></li><li class="space-toc-item space-toc-level-2"><a class="space-toc-link" href="#Reference"><span class="space-toc-text">Reference</span></a></li></ol>
+           </div>
+        
+      </div>
+   </div>
+    <!-- 评论 -->
+    
+  </div>
+</article>
+  </div>
+</div>
+
+
+
+<!-- 如果是home模式的话，不在首页就显示footer，如果不是home模式的话 所有都显示footer -->
+
+  <div class="footer-outer animate__animated  animate__fadeInUp">
+    <div class="footer-inner">
+    <div class="footer-text">
+    <p>Power by <a target="_blank" rel="noopener" href="http://hexo.io/">Hexo</a> Theme by <a target="_blank" rel="noopener" href="https://github.com/FuShaoLei/hexo-theme-white">White</a></p>
+
+    </div>
+    <div class="footer-contact">
+    <ul class="footer-ul">
+        
+        <li class="footer-li">
+            <a href="https://github.com/domechn" target="_blank">
+                <i class="ri-github-line"></i>
+            </a>
+        </li>
+        
+        <li class="footer-li">
+            <a href="mailto:domdoumc@gmail.com" target="_blank">
+                <i class="ri-mail-line"></i>
+            </a>
+        </li>
+        
+    </ul>
+    </div>
+    </div>
+</div>
+
+
+
+
+
+
+<script src="/js/white.js"></script>
+
+
+
+    
+      
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@9.18.1/build/highlight.min.js"></script>
+
+      <script>hljs.initHighlightingOnLoad();</script>
+    
+
+</body>
+</html>
