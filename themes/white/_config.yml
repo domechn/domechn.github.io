@@ -67,7 +67,7 @@ search:
 # 自我介绍
 intro:
   title: Hi.I'm Domechn.
-  sub: 'A Developer and ETH Believer' # markdown语法
+  sub: 'A Developer and A Stupid Person' # markdown语法
   avatar: https://avatars.githubusercontent.com/u/31119455?s=400&u=8c3a9b73ab1bc411702995d81d3bbd267d0573ff&v=4 #头像 暂时还没用到
   author: domechn #所有文章的默认作者
 
